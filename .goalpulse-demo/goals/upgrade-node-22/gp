@@ -1,7 +1,0 @@
-#!/bin/sh
-# goalpulse command bound to the goal "upgrade-node-22". Generated; safe to delete (goalpulse resume re-creates it).
-GOALPULSE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-export GOALPULSE_DIR
-export GOALPULSE_GOAL='upgrade-node-22'
-if [ -f '/Users/raymondottun/Projects/goalpulse/bin/goalpulse.js' ]; then exec node '/Users/raymondottun/Projects/goalpulse/bin/goalpulse.js' "$@"; fi
-exec goalpulse "$@"

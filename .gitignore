@@ -1,3 +1,4 @@
 node_modules
 .goalpulse
 .DS_Store
+.goalpulse-demo
