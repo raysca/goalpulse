@@ -95,6 +95,15 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
 .cols2 li{margin:2px 0;color:var(--text2)}
 .cols2 .risks li::marker{color:var(--blocked)}
 
+/* status strip */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.tile{padding:2px 0 2px 12px;border-left:2px solid var(--line2);min-width:0}
+.tl{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.tb{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:600;line-height:1.3;margin-top:2px}
+.ts{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile.hot{border-color:var(--blocked)}.tile.hot .tb{color:var(--blocked)}.tile.calm .tb{color:var(--muted)}
+.tile[class*=" h-"]{border-color:var(--c)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
 /* progress */
 .prog{padding:14px 16px}
 .stack{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--raise);gap:2px}
@@ -217,6 +226,7 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
   .page{padding:20px 16px 64px}
   .bar-top{padding:0 16px}
   .cols2{grid-template-columns:1fr}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tr{grid-template-columns:16px 44px minmax(0,1fr) 48px}
   .tr .chips,.tr .own{display:none}
   .sub-line,.detail{padding-left:70px}
@@ -371,8 +381,6 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     return '<h1>' + esc(g ? g.title : 'No goal set yet') + (s.archived ? ' <span class="chip">archived</span>' : '') + '</h1>' +
       (g && g.desc ? '<p class="sub">' + esc(g.desc) + '</p>' : '') +
       '<div class="props">' +
-      '<span class="prop h-' + esc(s.health.value) + '"><span class="ic"><svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg></span><b>' + esc(HEALTH[s.health.value] || s.health.value) + '</b></span>' +
-      '<span class="prop">' + ring(s.progress.pct, s.health.value) + '<b>' + s.progress.pct + '%</b> ' + s.progress.done + ' of ' + s.progress.total + ' tasks</span>' +
       (s.updatedAt ? '<span class="prop">' + (done ? 'Took ' : 'Running ') + '<b>' + running + '</b>' + esc(resumed) + '</span><span class="prop">Updated <b>' + esc(agoLong(s.updatedAt)) + '</b></span>' : '') +
       (g && g.plan ? '<span class="prop">Plan <span class="mono">' + esc(g.plan) + '</span></span>' : '') + '</div>';
   }
@@ -383,7 +391,9 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     if (!r) {
       body = '<div class="update muted">No update yet. The coordinator posts one after each wave of work.</div>';
     } else {
-      body = '<div class="update"><div class="up-hd h-' + esc(s.health.value) + '"><b>' + esc(HEALTH[s.health.value] || s.health.value) + '</b><span>' + esc(agoLong(r.ts)) + (r.by ? ' by ' + esc(r.by) : '') + '</span></div>' +
+      var behind = s.tasks.filter(function (t) { return new Date(t.updatedAt) > new Date(r.ts); }).length;
+      body = '<div class="update"><div class="up-hd h-' + esc(s.health.value) + '"><b>' + esc(HEALTH[s.health.value] || s.health.value) + '</b><span>as of ' + esc(agoLong(r.ts)) + (r.by ? ' by ' + esc(r.by) : '') + '</span>' +
+        (behind ? '<span class="chip warn" title="Tasks changed after this update was written">' + behind + ' task' + (behind > 1 ? 's' : '') + ' changed since</span>' : '') + '</div>' +
         '<p class="summary">' + esc(r.summary) + '</p>' +
         ((r.next && r.next.length) || (r.risks && r.risks.length) ? '<div class="cols2">' +
           '<div>' + (r.next && r.next.length ? '<h3>Next up</h3><ul>' + r.next.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
@@ -393,17 +403,34 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     return '<section class="sec"><div class="sec-hd"><h2>Coordinator update</h2></div><div class="box">' + body + '</div></section>';
   }
 
-  function progressSection(s) {
-    var p = s.progress, c = s.counts;
+  function tile(label, big, sub, cls) {
+    return '<div class="tile ' + (cls || '') + '"><div class="tl">' + label + '</div><div class="tb">' + big + '</div><div class="ts">' + sub + '</div></div>';
+  }
+
+  // The glance: health, what needs the human, what is running, what is next, then the bar.
+  function statusSection(s) {
+    var p = s.progress, c = s.counts, h = s.health.value;
+    var att = s.attention, kinds = {};
+    att.forEach(function (a) { kinds[a.kind] = (kinds[a.kind] || 0) + 1; });
+    var attSub = att.length ? [['question', 'question'], ['blocked', 'blocked'], ['failed', 'failed'], ['assumption', 'to confirm']].filter(function (k) { return kinds[k[0]]; })
+      .map(function (k) { return kinds[k[0]] + ' ' + k[1] + (k[0] === 'question' && kinds[k[0]] > 1 ? 's' : ''); }).join(' · ') : 'Nothing waiting on you';
+    var running = s.tasks.filter(function (t) { return t.status === 'active' || t.status === 'review'; });
+    var who = {};
+    running.forEach(function (t) { var w = t.status === 'review' ? (t.reviewer || t.owner) : t.owner; if (w) who[w] = 1; });
+    var ready = s.tasks.filter(function (t) { return t.status === 'todo' && t.ready; });
     var legend = ['done', 'review', 'active', 'blocked', 'failed', 'todo'].filter(function (k) { return c[k]; }).map(function (k) {
       return '<span>' + icon(k, 12) + ST[k].label + ' <b>' + c[k] + '</b></span>';
     }).join('');
-    var phases = s.phases && s.phases.length ? '<div class="phases">' + s.phases.map(function (ph) {
+    var phases = s.phases && s.phases.length > 1 ? '<div class="phases">' + s.phases.map(function (ph) {
       return '<div class="phase"><span>' + esc(ph.name) + '</span><div class="mini"><span style="width:' + (ph.total ? 100 * ph.done / ph.total : 0) + '%"></span></div>' +
         '<span class="muted">' + ph.done + '/' + ph.total + '</span></div>';
     }).join('') + '</div>' : '';
-    return '<section class="sec"><div class="sec-hd"><h2>Progress</h2></div><div class="box prog">' +
-      '<div class="stack" role="img" aria-label="' + p.pct + ' percent complete">' + stack(c, p.total, true) + '</div>' +
+    return '<section class="sec"><div class="box prog"><div class="tiles">' +
+      tile('Status', '<span class="dot h-' + esc(h) + '"></span>' + esc(HEALTH[h] || h), p.pct + '% · ' + p.done + ' of ' + p.total + ' tasks', 'h-' + esc(h)) +
+      tile('Needs you', att.length, esc(attSub), att.length ? 'hot' : 'calm') +
+      tile('Working now', running.length, running.length ? esc(Object.keys(who).slice(0, 3).join(', ')) : 'Nothing in flight') +
+      tile('Ready next', ready.length, ready.length ? esc(ready.slice(0, 3).map(function (t) { return t.id; }).join(', ')) : 'Nothing queued') +
+      '</div><div class="stack" role="img" aria-label="' + p.pct + ' percent complete">' + stack(c, p.total, true) + '</div>' +
       '<div class="legend">' + (legend || '<span>No tasks yet</span>') + '</div>' + phases + '</div></section>';
   }
 
@@ -463,8 +490,8 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
   }
 
   var GROUPS = [
-    { key: 'active', label: 'In progress' }, { key: 'review', label: 'In review' }, { key: 'blocked', label: 'Blocked' },
-    { key: 'failed', label: 'Failed' }, { key: 'todo', label: 'To do' }, { key: 'done', label: 'Done' }, { key: 'dropped', label: 'Dropped' }
+    { key: 'blocked', label: 'Blocked' }, { key: 'failed', label: 'Failed' },
+    { key: 'active', label: 'In progress' }, { key: 'review', label: 'In review' }, { key: 'todo', label: 'To do' }, { key: 'done', label: 'Done' }, { key: 'dropped', label: 'Dropped' }
   ];
   function byRecent(a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); }
 
@@ -475,10 +502,10 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
       if (!list.length) return;
       list.sort(g.key === 'todo' ? function (a, b) { return (b.ready ? 1 : 0) - (a.ready ? 1 : 0); } : byRecent);
       var collapsed = (g.key === 'done' || g.key === 'dropped') && !ui.more[g.key];
-      var shown = collapsed ? list.slice(0, 5) : list;
+      var shown = collapsed ? [] : list;
       out += '<div class="grp s-' + g.key + '">' + icon(g.key) + '<b>' + g.label + '</b><span class="n">' + list.length + '</span></div>' +
         shown.map(function (t) { return taskRow(t, s, flashIds); }).join('') +
-        (list.length > shown.length ? '<button class="more" data-act="more" data-v="' + g.key + '">Show all ' + list.length + '</button>' : '');
+        (list.length > shown.length ? '<button class="more" data-act="more" data-v="' + g.key + '">Show ' + list.length + ' ' + g.label.toLowerCase() + '</button>' : '');
     });
     return '<div class="box" style="overflow:hidden">' + out + '</div>';
   }
@@ -671,10 +698,10 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
 
     var empty = !state.goal && !state.tasks.length;
     var inner = header(state) + (empty ? '<section class="sec">' + onboarding() + '</section>' :
-      reportSection(state) + attention(state) + progressSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
+      statusSection(state) + attention(state) + reportSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
       '<div class="foot">' + state.rev + ' events' + (conn === 'snapshot' ? '. Static snapshot: run <span class="mono">goalpulse dashboard</span> for live updates.' : '') + '</div>');
     app.innerHTML = shell(goals, state, state.goal ? state.goal.title : state.slug, inner, multi);
-    document.title = (state.progress.total ? state.progress.pct + '% · ' : '') + (state.goal ? state.goal.title : 'Goal progress');
+    document.title = (state.attention.length ? '(' + state.attention.length + ') ' : '') + (state.progress.total ? state.progress.pct + '% · ' : '') + (state.goal ? state.goal.title : 'Goal progress');
   }
 
   function jump(target) {
