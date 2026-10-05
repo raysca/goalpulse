@@ -1,0 +1,16 @@
+{
+  "name": "raysca-tools",
+  "owner": {
+    "name": "goalpulse contributors"
+  },
+  "metadata": {
+    "description": "Visual progress reporting for agent-driven goals"
+  },
+  "plugins": [
+    {
+      "name": "goalpulse",
+      "source": "./",
+      "description": "Tell your agent to use goalpulse and watch its progress, assumptions and questions on a live dashboard. Supports several goals at once and resuming a goal."
+    }
+  ]
+}

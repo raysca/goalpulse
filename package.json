@@ -1,0 +1,41 @@
+{
+  "name": "@raysca/goalpulse",
+  "version": "0.4.0",
+  "description": "Structured progress reporting for agent-driven goals: a CLI the coordinating agent calls, and a live dashboard for the human.",
+  "bin": {
+    "goalpulse": "bin/goalpulse.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "dashboard",
+    "skills",
+    "examples",
+    ".claude-plugin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "demo": "node examples/simulate.js --live --serve"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai-agents",
+    "multi-agent",
+    "claude-code",
+    "progress",
+    "dashboard"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raysca/goalpulse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/raysca/goalpulse/issues"
+  },
+  "homepage": "https://github.com/raysca/goalpulse#readme"
+}

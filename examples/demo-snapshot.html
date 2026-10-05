@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Goal progress</title>
+<style>
+:root{
+  --bg:#ffffff;--panel:#fafafb;--raise:#f4f5f6;--hover:#f1f2f4;--line:#e8e9ec;--line2:#dcdee2;
+  --text:#1c1d20;--text2:#4a4d54;--muted:#80848c;--accent:#5b66d6;--accent-bg:#eceefc;--on:#fff;
+  --todo:#8a8e96;--active:#d29a0b;--review:#2f9e6b;--done:#5b66d6;--blocked:#d9731f;--failed:#d94646;
+  --shadow:0 1px 2px rgba(16,17,20,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0f1012;--panel:#141518;--raise:#1a1b1f;--hover:#1b1c20;--line:#232529;--line2:#2c2e34;
+    --text:#eef0f2;--text2:#b8bcc3;--muted:#7b8089;--accent:#8590f5;--accent-bg:#1c1e33;--on:#fff;
+    --todo:#7b8089;--active:#f0b940;--review:#4cc38a;--done:#7b86f0;--blocked:#f09050;--failed:#f06a6a;
+    --shadow:none;
+  }
+}
+:root[data-theme=light]{--bg:#ffffff;--panel:#fafafb;--raise:#f4f5f6;--hover:#f1f2f4;--line:#e8e9ec;--line2:#dcdee2;--text:#1c1d20;--text2:#4a4d54;--muted:#80848c;--accent:#5b66d6;--accent-bg:#eceefc;--todo:#8a8e96;--active:#d29a0b;--review:#2f9e6b;--done:#5b66d6;--blocked:#d9731f;--failed:#d94646}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.5 "Inter var",Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,h4,p,ul{margin:0}
+ul{padding-left:16px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:4px}
+.muted{color:var(--muted)}.t2{color:var(--text2)}.small{font-size:12px}
+.mono{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;font-size:12px}
+svg{display:block;flex:none}
+.ic{display:inline-flex;color:var(--c,var(--todo))}
+.ic svg{overflow:visible}
+
+/* status colour hooks */
+.s-todo{--c:var(--todo)}.s-active{--c:var(--active)}.s-review{--c:var(--review)}.s-blocked{--c:var(--blocked)}
+.s-failed{--c:var(--failed)}.s-done{--c:var(--done)}.s-dropped{--c:var(--todo)}
+.h-on-track{--c:var(--review)}.h-complete{--c:var(--done)}.h-at-risk{--c:var(--active)}.h-blocked{--c:var(--failed)}.h-planning{--c:var(--todo)}
+
+/* shell */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.app.solo{grid-template-columns:minmax(0,1fr)}
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);padding:12px 8px;display:flex;flex-direction:column;gap:2px}
+.brand{display:flex;align-items:center;gap:8px;padding:4px 8px 12px;font-weight:600;font-size:13px;letter-spacing:-.01em}
+.brand i{width:16px;height:16px;border-radius:5px;background:var(--accent);display:grid;place-items:center}
+.brand i::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--on)}
+.side-h{padding:14px 8px 4px;font-size:11px;color:var(--muted);font-weight:500}
+.nav{display:flex;align-items:center;gap:8px;width:100%;padding:5px 8px;border-radius:6px;color:var(--text2);min-height:28px}
+.nav:hover{background:var(--hover);color:var(--text)}
+.nav[aria-current=page]{background:var(--raise);color:var(--text)}
+.nav .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav .badge{font-size:11px;font-weight:600;color:var(--blocked);min-width:16px;text-align:right}
+.side-ft{margin-top:auto;padding:10px 8px 2px}
+.main{min-width:0}
+.bar-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;height:44px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.crumb{display:flex;align-items:center;gap:6px;min-width:0;color:var(--muted)}
+.crumb b{font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.back{color:var(--muted);border-radius:4px;padding:2px 4px;margin-left:-4px}
+.back:hover{color:var(--text);background:var(--hover)}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.live i{width:6px;height:6px;border-radius:50%;background:var(--todo)}
+.live.on i{background:var(--review);box-shadow:0 0 0 3px color-mix(in srgb,var(--review) 22%,transparent)}
+.live.offline i{background:var(--failed)}
+.page{max-width:1000px;margin:0 auto;padding:28px 24px 80px}
+.solo .page{max-width:1000px}
+
+/* title block */
+h1{font-size:22px;line-height:1.25;font-weight:600;letter-spacing:-.02em}
+.sub{margin-top:6px;color:var(--text2);max-width:70ch;font-size:14px;line-height:1.55}
+.props{display:flex;flex-wrap:wrap;align-items:center;gap:6px 6px;margin-top:16px}
+.prop{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 9px;border:1px solid var(--line);border-radius:6px;color:var(--text2);font-size:12px;white-space:nowrap}
+.prop b{font-weight:500;color:var(--text)}
+.prop .ic{color:var(--c)}
+
+/* sections */
+.sec{margin-top:32px}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;min-height:28px}
+h2{font-size:13px;font-weight:600;letter-spacing:-.005em}
+h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
+.tabs{display:inline-flex;gap:2px}
+.tabs button{padding:3px 9px;border-radius:6px;color:var(--muted);font-size:12px;font-weight:500}
+.tabs button:hover{color:var(--text);background:var(--hover)}
+.tabs button[aria-pressed=true]{color:var(--text);background:var(--raise)}
+.tabs .n{margin-left:5px;opacity:.7}
+.box{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+
+/* update */
+.update{padding:14px 16px}
+.up-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted)}
+.up-hd b{color:var(--c);font-weight:600}
+.summary{font-size:14px;line-height:1.6;white-space:pre-wrap;max-width:75ch}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.cols2 h3{font-size:12px;font-weight:500;color:var(--muted);margin-bottom:4px}
+.cols2 li{margin:2px 0;color:var(--text2)}
+.cols2 .risks li::marker{color:var(--blocked)}
+
+/* progress */
+.prog{padding:14px 16px}
+.stack{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--raise);gap:2px}
+.stack span{display:block;min-width:4px;transition:width .4s ease}
+.seg-done{background:var(--done)}.seg-review{background:var(--review)}.seg-active{background:var(--active)}.seg-blocked{background:var(--blocked)}.seg-failed{background:var(--failed)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend b{color:var(--text);font-weight:500}
+.phases{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 24px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.phase{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;align-items:center;gap:10px;font-size:12px}
+.phase>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)}
+.mini{height:4px;border-radius:2px;background:var(--raise);overflow:hidden}
+.mini span{display:block;height:100%;background:var(--done)}
+
+/* attention */
+.arow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:9px 14px;border-top:1px solid var(--line)}
+.arow:first-child{border-top:0}
+.arow:hover{background:var(--hover)}
+.arow .k{font-size:12px;font-weight:600;color:var(--c);display:inline-flex;align-items:center;gap:7px;min-width:132px}
+.arow .k i{width:6px;height:6px;border-radius:50%;background:var(--c)}
+.arow .tx{min-width:0;color:var(--text)}
+.arow .tx .mono{color:var(--muted);margin-right:6px}
+.arow .chips{display:flex;gap:5px}
+.a-q{--c:var(--review)}.a-blocked{--c:var(--blocked)}.a-failed{--c:var(--failed)}.a-assumption{--c:var(--active)}
+.attn{border-color:color-mix(in srgb,var(--blocked) 35%,var(--line))}
+
+/* chips */
+.chip{display:inline-flex;align-items:center;gap:5px;height:18px;padding:0 6px;border:1px solid var(--line);border-radius:5px;font-size:11px;color:var(--muted);white-space:nowrap}
+.chip.ready{color:var(--review);border-color:color-mix(in srgb,var(--review) 35%,var(--line))}
+.chip.warn{color:var(--blocked);border-color:color-mix(in srgb,var(--blocked) 40%,var(--line))}
+.lvl-low,.lvl-high-impact{color:var(--blocked);border-color:color-mix(in srgb,var(--blocked) 40%,var(--line))}
+.lvl-good,.rs-confirmed{color:var(--review);border-color:color-mix(in srgb,var(--review) 35%,var(--line))}
+.rs-rejected{color:var(--failed);border-color:color-mix(in srgb,var(--failed) 40%,var(--line))}
+.rs-revised{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.link{color:var(--accent);font-weight:500;font-size:inherit}
+.link:hover{text-decoration:underline}
+.av{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:600;color:var(--on);background:var(--avc,var(--todo));flex:none}
+.own{display:inline-flex;align-items:center;gap:6px;color:var(--text2);font-size:12px;min-width:0}
+.own span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* task list */
+.grp{display:flex;align-items:center;gap:8px;height:32px;padding:0 14px;background:var(--panel);border-top:1px solid var(--line);font-size:12px}
+.grp:first-child{border-top:0;border-radius:8px 8px 0 0}
+.grp b{font-weight:600}.grp .n{color:var(--muted)}
+.trow{border-top:1px solid var(--line);cursor:pointer;scroll-margin:80px}
+.trow:hover{background:var(--hover)}
+.tr{display:grid;grid-template-columns:16px 52px minmax(0,1fr) auto 128px 56px;gap:10px;align-items:center;min-height:38px;padding:6px 14px}
+.tid{color:var(--muted);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px}
+.ttl{min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.s-done .ttl,.s-dropped .ttl{color:var(--text2)}
+.s-dropped .ttl{text-decoration:line-through}
+.tr .chips{display:flex;gap:5px;justify-content:flex-end}
+.when{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
+.sub-line{padding:0 14px 8px 92px;margin-top:-2px;font-size:12px;color:var(--muted)}
+.s-blocked .sub-line,.s-failed .sub-line{color:var(--c)}
+.detail{padding:4px 14px 12px 92px;display:grid;gap:8px;font-size:12px;color:var(--text2);cursor:default}
+.hist{display:grid;gap:3px;color:var(--muted);border-left:1px solid var(--line2);padding-left:10px}
+.hist b{color:var(--text2);font-weight:500}
+.flash{animation:flash 1.8s ease-out}
+.more{display:block;width:100%;padding:8px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+.more:hover{color:var(--text);background:var(--hover)}
+.empty{padding:14px;color:var(--muted)}
+
+/* board */
+.board{display:grid;grid-template-columns:repeat(5,minmax(190px,1fr));gap:10px;overflow-x:auto;align-items:start;padding-bottom:4px}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;min-height:80px}
+.col-hd{display:flex;align-items:center;gap:7px;padding:4px 6px 8px;font-size:12px;font-weight:600}
+.col-hd .n{color:var(--muted);font-weight:500}
+.card{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:6px;cursor:pointer;box-shadow:var(--shadow);scroll-margin:80px}
+.card:hover{border-color:var(--line2)}
+.card .tid{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.card h4{font-size:13px;font-weight:500;line-height:1.4}
+.card .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+.card .res{margin-top:6px;font-size:12px;color:var(--muted)}
+.card .detail{padding:8px 0 0;margin-top:8px;border-top:1px solid var(--line)}
+
+/* assumptions */
+.as{padding:10px 14px;border-top:1px solid var(--line);scroll-margin:80px}
+.as:first-child{border-top:0}
+.as-top{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:baseline}
+.as .id{color:var(--muted)}
+.as h4{font-size:13px;font-weight:500;line-height:1.45}
+.as .chips{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.as .why{margin:4px 0 0 44px;font-size:12px;color:var(--muted);max-width:78ch}
+.as .why b{color:var(--text2);font-weight:500}
+.as.risky{box-shadow:inset 2px 0 0 var(--blocked)}
+.as.closed h4{color:var(--text2)}
+
+/* activity */
+.ev{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:10px;padding:7px 14px;border-top:1px solid var(--line);align-items:center;font-size:12px}
+.ev:first-child{border-top:0}
+.ev .g{color:var(--c,var(--muted));display:inline-grid;place-items:center;width:16px;font-size:11px;line-height:1}
+.ev .by{color:var(--muted)}
+.k-assume,.k-risk{--c:var(--active)}.k-ask,.k-answer{--c:var(--review)}.k-decision,.k-report,.k-goal,.k-plan{--c:var(--accent)}
+
+/* goal list */
+.gh,.gcard{display:grid;grid-template-columns:18px minmax(0,1fr) 98px 150px 96px 64px;gap:12px;align-items:center;padding:0 14px}
+.gh{height:30px;background:var(--panel);border-radius:8px 8px 0 0;font-size:12px;color:var(--muted)}
+.gcard{min-height:52px;border-top:1px solid var(--line);cursor:pointer;padding-top:8px;padding-bottom:8px}
+.gcard:hover{background:var(--hover)}
+.gc-t{min-width:0}
+.gc-t b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-t span{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-p{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.gc-p .stack{flex:1;height:4px}
+.hp{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
+.hp i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.onboard{padding:18px}
+.onboard p{color:var(--text2)}
+.onboard code{display:block;margin-top:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace;overflow-x:auto}
+.foot{margin-top:40px;color:var(--muted);font-size:12px}
+.mtop{display:none}
+
+@keyframes flash{0%{background:var(--accent-bg)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .mtop{display:inline}
+  .page{padding:20px 16px 64px}
+  .bar-top{padding:0 16px}
+  .cols2{grid-template-columns:1fr}
+  .tr{grid-template-columns:16px 44px minmax(0,1fr) 48px}
+  .tr .chips,.tr .own{display:none}
+  .sub-line,.detail{padding-left:70px}
+  .gh{display:none}
+  .gcard{grid-template-columns:18px minmax(0,1fr) 86px}
+  .gcard>:nth-child(3),.gcard>:nth-child(6){display:none}
+  .arow{grid-template-columns:minmax(0,1fr)}
+  .arow .k{min-width:0}
+  .as-top{grid-template-columns:30px minmax(0,1fr)}
+  .as .chips{grid-column:2;justify-content:flex-start}
+  .as .why{margin-left:40px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+window.__GP_DATA__ = {"goals":[{"slug":"fix-flaky-ci","rev":11,"archived":false,"resumes":[],"goal":{"title":"Fix flaky CI tests","desc":"The checkout suite fails about 1 in 8 CI runs. Find the cause, fix it, and prove it with 50 green runs.","plan":"docs/flaky-tests.md","ts":"2026-10-05T10:10:57.262Z"},"tasks":[{"id":"F1","title":"Reproduce the failure locally","desc":"","owner":"debugger-1","reviewer":null,"phase":"Diagnose","deps":[],"status":"done","result":"Reproduced with --repeat 40; fails when two specs share a session","blocker":null,"createdAt":"2026-10-05T10:10:57.346Z","updatedAt":"2026-10-05T10:10:57.522Z","history":[{"ts":"2026-10-05T10:10:57.435Z","status":"active","by":"debugger-1","text":""},{"ts":"2026-10-05T10:10:57.522Z","status":"done","by":"debugger-1","text":"Reproduced with --repeat 40; fails when two specs share a session"}],"implicit":false,"doneBy":"debugger-1","waitingOn":[],"ready":false},{"id":"F2","title":"Identify the root cause","desc":"","owner":"debugger-1","reviewer":null,"phase":"Diagnose","deps":["F1"],"status":"active","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:57.347Z","updatedAt":"2026-10-05T10:10:57.612Z","history":[{"ts":"2026-10-05T10:10:57.612Z","status":"active","by":"debugger-1","text":""}],"implicit":false,"waitingOn":[],"ready":false},{"id":"F3","title":"Fix and add a regression test","desc":"","owner":null,"reviewer":null,"phase":"Fix","deps":["F2"],"status":"todo","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:57.347Z","updatedAt":"2026-10-05T10:10:57.347Z","history":[],"implicit":false,"waitingOn":["F2"],"ready":false},{"id":"F4","title":"50-run soak test on CI","desc":"","owner":null,"reviewer":null,"phase":"Fix","deps":["F3"],"status":"todo","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:57.347Z","updatedAt":"2026-10-05T10:10:57.347Z","history":[],"implicit":false,"waitingOn":["F3"],"ready":false}],"assumptions":[{"id":"A1","text":"The shared test session store is the cause, not network timing.","why":"Failures only appear when specs run in parallel","alt":"CI runner network jitter","confidence":"low","impact":"high","task":"F2","by":"debugger-1","status":"open","note":"","ts":"2026-10-05T10:10:57.701Z","resolvedAt":null}],"asks":[{"id":"Q1","text":"Can we quarantine checkout.spec on CI while we investigate?","task":"F2","options":["Yes, quarantine it","No, keep it blocking"],"by":null,"status":"open","answer":null,"ts":"2026-10-05T10:10:57.791Z"}],"notes":[],"report":{"ts":"2026-10-05T10:10:57.881Z","summary":"Failure reproduced locally; investigating the shared session store as the likely cause.","health":"on-track","next":["Confirm the root cause (F2)"],"risks":[],"by":null},"activity":[{"ts":"2026-10-05T10:10:57.262Z","kind":"goal","text":"Goal set: Fix flaky CI tests","task":null,"by":null},{"ts":"2026-10-05T10:10:57.347Z","kind":"plan","text":"Planned 4 tasks","task":null,"by":null,"count":4},{"ts":"2026-10-05T10:10:57.435Z","kind":"active","text":"Started F1 · Reproduce the failure locally","task":"F1","by":"debugger-1"},{"ts":"2026-10-05T10:10:57.522Z","kind":"done","text":"Finished F1 · Reproduce the failure locally — Reproduced with --repeat 40; fails when two specs share a session","task":"F1","by":"debugger-1"},{"ts":"2026-10-05T10:10:57.612Z","kind":"active","text":"Started F2 · Identify the root cause","task":"F2","by":"debugger-1"},{"ts":"2026-10-05T10:10:57.701Z","kind":"assume","text":"Assumed: The shared test session store is the cause, not network timing.","task":"F2","by":"debugger-1","ref":"A1"},{"ts":"2026-10-05T10:10:57.791Z","kind":"ask","text":"Question: Can we quarantine checkout.spec on CI while we investigate?","task":"F2","by":null,"ref":"Q1"},{"ts":"2026-10-05T10:10:57.881Z","kind":"report","text":"Status report: Failure reproduced locally; investigating the shared session store as the likely cause.","task":null,"by":null}],"startedAt":"2026-10-05T10:10:57.262Z","updatedAt":"2026-10-05T10:10:57.881Z","counts":{"todo":2,"active":1,"review":0,"blocked":0,"failed":0,"done":1,"dropped":0},"progress":{"total":4,"done":1,"pct":25},"phases":[{"name":"Diagnose","total":2,"done":1},{"name":"Fix","total":2,"done":0}],"attention":[{"kind":"question","id":"Q1","text":"Can we quarantine checkout.spec on CI while we investigate?","task":"F2"},{"kind":"assumption","id":"A1","text":"The shared test session store is the cause, not network timing.","task":"F2","confidence":"low","impact":"high"}],"health":{"value":"on-track","derived":"on-track","reported":"on-track"}},{"slug":"ship-team-billing","rev":42,"archived":false,"resumes":[{"ts":"2026-10-05T10:10:58.919Z","by":"coordinator-2"}],"goal":{"title":"Ship team-based billing","desc":"Per-seat subscriptions for teams, following docs/billing-plan.md. Target: live behind a feature flag by Friday.","plan":"docs/billing-plan.md","ts":"2026-10-05T10:10:56.509Z"},"tasks":[{"id":"T1","title":"Audit existing billing code","desc":"","owner":"explorer-1","reviewer":null,"phase":"Discovery","deps":[],"status":"done","result":"Mapped 14 files; 3 legacy callers need a compatibility shim","blocker":null,"createdAt":"2026-10-05T10:10:56.595Z","updatedAt":"2026-10-05T10:10:57.179Z","history":[{"ts":"2026-10-05T10:10:56.761Z","status":"active","by":"explorer-1","text":""},{"ts":"2026-10-05T10:10:57.179Z","status":"done","by":"explorer-1","text":"Mapped 14 files; 3 legacy callers need a compatibility shim"}],"implicit":false,"doneBy":"explorer-1","waitingOn":[],"ready":false},{"id":"T2","title":"Choose payment provider integration approach","desc":"","owner":"architect-1","reviewer":"reviewer-1","phase":"Discovery","deps":[],"status":"done","result":"Approach agreed; ADR written to docs/adr/012-billing-sync.md","blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:58.152Z","history":[{"ts":"2026-10-05T10:10:56.840Z","status":"active","by":"architect-1","text":""},{"ts":"2026-10-05T10:10:57.971Z","status":"review","by":"reviewer-1","text":""},{"ts":"2026-10-05T10:10:58.152Z","status":"done","by":"architect-1","text":"Approach agreed; ADR written to docs/adr/012-billing-sync.md"}],"implicit":false,"doneBy":"architect-1","waitingOn":[],"ready":false},{"id":"T3","title":"Schema for teams and subscriptions","desc":"","owner":"backend-1","reviewer":"reviewer-1","phase":"Build","deps":["T1"],"status":"done","result":"Schema and migration merged, index added","blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:58.840Z","history":[{"ts":"2026-10-05T10:10:58.324Z","status":"active","by":"backend-1","text":""},{"ts":"2026-10-05T10:10:58.612Z","status":"review","by":"reviewer-1","text":""},{"ts":"2026-10-05T10:10:58.675Z","status":"active","by":"backend-1","text":"Reviewer asked for an index on subscriptions.team_id"},{"ts":"2026-10-05T10:10:58.760Z","status":"review","by":"reviewer-1","text":""},{"ts":"2026-10-05T10:10:58.840Z","status":"done","by":"backend-1","text":"Schema and migration merged, index added"}],"implicit":false,"doneBy":"backend-1","waitingOn":[],"ready":false},{"id":"T4","title":"Stripe webhook handler","desc":"","owner":"backend-1","reviewer":null,"phase":"Build","deps":["T2","T3"],"status":"blocked","result":null,"blocker":"Needs STRIPE_WEBHOOK_SECRET for the test environment; not in the repo or CI secrets","createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:59.179Z","history":[{"ts":"2026-10-05T10:10:58.977Z","status":"active","by":"backend-1","text":""},{"ts":"2026-10-05T10:10:59.179Z","status":"blocked","by":"backend-1","text":"Needs STRIPE_WEBHOOK_SECRET for the test environment; not in the repo or CI secrets"}],"implicit":false,"waitingOn":[],"ready":false},{"id":"T5","title":"Checkout session API","desc":"","owner":"backend-2","reviewer":"reviewer-2","phase":"Build","deps":["T3"],"status":"done","result":"Checkout session API with 9 passing tests","blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:59.353Z","history":[{"ts":"2026-10-05T10:10:59.047Z","status":"active","by":"backend-2","text":""},{"ts":"2026-10-05T10:10:59.298Z","status":"review","by":"reviewer-2","text":""},{"ts":"2026-10-05T10:10:59.353Z","status":"done","by":"backend-2","text":"Checkout session API with 9 passing tests"}],"implicit":false,"doneBy":"backend-2","waitingOn":[],"ready":false},{"id":"T6","title":"Seat management UI","desc":"","owner":"frontend-1","reviewer":null,"phase":"Build","deps":["T5"],"status":"active","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:59.415Z","history":[{"ts":"2026-10-05T10:10:59.415Z","status":"active","by":"frontend-1","text":""}],"implicit":false,"waitingOn":[],"ready":false},{"id":"T7","title":"Usage metering job","desc":"","owner":null,"reviewer":null,"phase":"Build","deps":["T4"],"status":"todo","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:56.596Z","history":[],"implicit":false,"waitingOn":["T4"],"ready":false},{"id":"T8","title":"Integration test suite","desc":"","owner":null,"reviewer":null,"phase":"Verify","deps":["T4","T5"],"status":"todo","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:56.596Z","history":[],"implicit":false,"waitingOn":["T4"],"ready":false},{"id":"T9","title":"Security review","desc":"","owner":null,"reviewer":null,"phase":"Verify","deps":["T4","T5","T7"],"status":"todo","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:56.596Z","history":[],"implicit":false,"waitingOn":["T4","T7"],"ready":false},{"id":"T10","title":"Docs and migration guide","desc":"","owner":null,"reviewer":null,"phase":"Verify","deps":["T6"],"status":"todo","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:56.596Z","history":[],"implicit":false,"waitingOn":["T6"],"ready":false},{"id":"T11","title":"Rollout plan behind feature flag","desc":"","owner":null,"reviewer":null,"phase":"Verify","deps":["T8","T9"],"status":"todo","result":null,"blocker":null,"createdAt":"2026-10-05T10:10:56.596Z","updatedAt":"2026-10-05T10:10:56.596Z","history":[],"implicit":false,"waitingOn":["T8","T9"],"ready":false}],"assumptions":[{"id":"A1","text":"Stripe is the payment provider. The plan references Stripe objects but never says it is mandated.","why":"Billing plan section 2 uses Stripe terminology throughout","alt":"Paddle (merchant of record)","confidence":"medium","impact":"high","task":"T2","by":"architect-1","status":"open","note":"","ts":"2026-10-05T10:10:56.925Z","resolvedAt":null},{"id":"A2","text":"Keep legacy invoices read-only instead of migrating them.","why":"Migrating 40k rows has no stated requirement","alt":"One-off backfill into the new schema","confidence":"high","impact":"low","task":"T1","by":"explorer-1","status":"open","note":"","ts":"2026-10-05T10:10:57.093Z","resolvedAt":null},{"id":"A3","text":"Seat limits are enforced in the application layer, not by a database constraint.","why":"Limits change per plan, so a constraint would need a migration each time","alt":"Check constraint driven by a plans table","confidence":"medium","impact":"medium","task":"T3","by":"backend-1","status":"open","note":"","ts":"2026-10-05T10:10:58.387Z","resolvedAt":null},{"id":"A4","text":"Prorate seat changes to the day, matching Stripe default behaviour.","why":"Plan is silent; this needs no custom logic","alt":"Apply changes from the next billing cycle","confidence":"low","impact":"high","task":"T5","by":"backend-2","status":"open","note":"","ts":"2026-10-05T10:10:59.110Z","resolvedAt":null},{"id":"A5","text":"Seat picker caps at 50 seats, then shows \"contact sales\".","why":"Common pattern; keeps large accounts on invoicing","alt":"","confidence":"medium","impact":"low","task":"T6","by":"frontend-1","status":"open","note":"","ts":"2026-10-05T10:10:59.482Z","resolvedAt":null}],"asks":[{"id":"Q1","text":"Should free-trial teams be capped at 5 seats?","task":"T3","options":["Yes, cap at 5","No cap during trial"],"by":null,"status":"open","answer":null,"ts":"2026-10-05T10:10:58.447Z"},{"id":"Q2","text":"Can you add a Stripe test-mode webhook secret to CI?","task":"T4","options":["I will add it","Use the Stripe CLI locally for now"],"by":null,"status":"open","answer":null,"ts":"2026-10-05T10:10:59.236Z"}],"notes":[{"ts":"2026-10-05T10:10:57.009Z","kind":"finding","text":"Legacy billing code lives in app/billing/legacy; 3 callers still import it.","task":"T1","by":"explorer-1"},{"ts":"2026-10-05T10:10:58.062Z","kind":"decision","text":"Webhook-driven state sync with idempotency keys, not polling.","task":"T2","by":"architect-1"},{"ts":"2026-10-05T10:10:58.506Z","kind":"risk","text":"The plan does not say how to prorate mid-cycle seat changes.","task":"T3","by":"backend-1"}],"report":{"ts":"2026-10-05T10:10:59.539Z","summary":"Checkout API is done and the seat UI is underway. Webhook handler (T4) is blocked on a CI secret, which holds up metering, tests and the security review. Two assumptions about proration and the provider need your eyes.","health":"at-risk","next":["Unblock T4 (needs your answer on Q2)","Finish seat UI (T6)"],"risks":["T7, T8, T9 and T11 are all waiting behind T4","Proration assumption (A4) is low confidence and high impact"],"by":null},"activity":[{"ts":"2026-10-05T10:10:56.509Z","kind":"goal","text":"Goal set: Ship team-based billing","task":null,"by":null},{"ts":"2026-10-05T10:10:56.596Z","kind":"plan","text":"Planned 11 tasks","task":null,"by":null,"count":11},{"ts":"2026-10-05T10:10:56.680Z","kind":"report","text":"Status report: Plan registered: 11 tasks across Discovery, Build and Verify. Starting with the two discovery tasks in parallel.","task":null,"by":null},{"ts":"2026-10-05T10:10:56.761Z","kind":"active","text":"Started T1 · Audit existing billing code","task":"T1","by":"explorer-1"},{"ts":"2026-10-05T10:10:56.840Z","kind":"active","text":"Started T2 · Choose payment provider integration approach","task":"T2","by":"architect-1"},{"ts":"2026-10-05T10:10:56.925Z","kind":"assume","text":"Assumed: Stripe is the payment provider. The plan references Stripe objects but never says it is mandated.","task":"T2","by":"architect-1","ref":"A1"},{"ts":"2026-10-05T10:10:57.009Z","kind":"finding","text":"Finding: Legacy billing code lives in app/billing/legacy; 3 callers still import it.","task":"T1","by":"explorer-1"},{"ts":"2026-10-05T10:10:57.093Z","kind":"assume","text":"Assumed: Keep legacy invoices read-only instead of migrating them.","task":"T1","by":"explorer-1","ref":"A2"},{"ts":"2026-10-05T10:10:57.179Z","kind":"done","text":"Finished T1 · Audit existing billing code — Mapped 14 files; 3 legacy callers need a compatibility shim","task":"T1","by":"explorer-1"},{"ts":"2026-10-05T10:10:57.971Z","kind":"review","text":"T2 ready for review · Choose payment provider integration approach","task":"T2","by":"reviewer-1"},{"ts":"2026-10-05T10:10:58.062Z","kind":"decision","text":"Decision: Webhook-driven state sync with idempotency keys, not polling.","task":"T2","by":"architect-1"},{"ts":"2026-10-05T10:10:58.152Z","kind":"done","text":"Finished T2 · Choose payment provider integration approach — Approach agreed; ADR written to docs/adr/012-billing-sync.md","task":"T2","by":"architect-1"},{"ts":"2026-10-05T10:10:58.240Z","kind":"report","text":"Status report: Discovery finished. Provider approach settled on webhook-driven sync; legacy code needs a thin shim. Moving into the build phase.","task":null,"by":null},{"ts":"2026-10-05T10:10:58.324Z","kind":"active","text":"Started T3 · Schema for teams and subscriptions","task":"T3","by":"backend-1"},{"ts":"2026-10-05T10:10:58.387Z","kind":"assume","text":"Assumed: Seat limits are enforced in the application layer, not by a database constraint.","task":"T3","by":"backend-1","ref":"A3"},{"ts":"2026-10-05T10:10:58.447Z","kind":"ask","text":"Question: Should free-trial teams be capped at 5 seats?","task":"T3","by":null,"ref":"Q1"},{"ts":"2026-10-05T10:10:58.506Z","kind":"risk","text":"Risk: The plan does not say how to prorate mid-cycle seat changes.","task":"T3","by":"backend-1"},{"ts":"2026-10-05T10:10:58.612Z","kind":"review","text":"T3 ready for review · Schema for teams and subscriptions","task":"T3","by":"reviewer-1"},{"ts":"2026-10-05T10:10:58.675Z","kind":"active","text":"Started T3 · Schema for teams and subscriptions — Reviewer asked for an index on subscriptions.team_id","task":"T3","by":"backend-1"},{"ts":"2026-10-05T10:10:58.760Z","kind":"review","text":"T3 ready for review · Schema for teams and subscriptions","task":"T3","by":"reviewer-1"},{"ts":"2026-10-05T10:10:58.840Z","kind":"done","text":"Finished T3 · Schema for teams and subscriptions — Schema and migration merged, index added","task":"T3","by":"backend-1"},{"ts":"2026-10-05T10:10:58.919Z","kind":"resume","text":"Work resumed by coordinator-2","task":null,"by":"coordinator-2"},{"ts":"2026-10-05T10:10:58.977Z","kind":"active","text":"Started T4 · Stripe webhook handler","task":"T4","by":"backend-1"},{"ts":"2026-10-05T10:10:59.047Z","kind":"active","text":"Started T5 · Checkout session API","task":"T5","by":"backend-2"},{"ts":"2026-10-05T10:10:59.110Z","kind":"assume","text":"Assumed: Prorate seat changes to the day, matching Stripe default behaviour.","task":"T5","by":"backend-2","ref":"A4"},{"ts":"2026-10-05T10:10:59.179Z","kind":"blocked","text":"Blocked T4 · Stripe webhook handler — Needs STRIPE_WEBHOOK_SECRET for the test environment; not in the repo or CI secrets","task":"T4","by":"backend-1"},{"ts":"2026-10-05T10:10:59.236Z","kind":"ask","text":"Question: Can you add a Stripe test-mode webhook secret to CI?","task":"T4","by":null,"ref":"Q2"},{"ts":"2026-10-05T10:10:59.298Z","kind":"review","text":"T5 ready for review · Checkout session API","task":"T5","by":"reviewer-2"},{"ts":"2026-10-05T10:10:59.353Z","kind":"done","text":"Finished T5 · Checkout session API — Checkout session API with 9 passing tests","task":"T5","by":"backend-2"},{"ts":"2026-10-05T10:10:59.415Z","kind":"active","text":"Started T6 · Seat management UI","task":"T6","by":"frontend-1"},{"ts":"2026-10-05T10:10:59.482Z","kind":"assume","text":"Assumed: Seat picker caps at 50 seats, then shows \"contact sales\".","task":"T6","by":"frontend-1","ref":"A5"},{"ts":"2026-10-05T10:10:59.539Z","kind":"report","text":"Status report: Checkout API is done and the seat UI is underway. Webhook handler (T4) is blocked on a CI secret, which holds up metering, tests and the se…","task":null,"by":null}],"startedAt":"2026-10-05T10:10:56.509Z","updatedAt":"2026-10-05T10:10:59.539Z","counts":{"todo":5,"active":1,"review":0,"blocked":1,"failed":0,"done":4,"dropped":0},"progress":{"total":11,"done":4,"pct":36},"phases":[{"name":"Discovery","total":2,"done":2},{"name":"Build","total":5,"done":2},{"name":"Verify","total":4,"done":0}],"attention":[{"kind":"question","id":"Q1","text":"Should free-trial teams be capped at 5 seats?","task":"T3"},{"kind":"question","id":"Q2","text":"Can you add a Stripe test-mode webhook secret to CI?","task":"T4"},{"kind":"blocked","id":"T4","title":"Stripe webhook handler","text":"Needs STRIPE_WEBHOOK_SECRET for the test environment; not in the repo or CI secrets","task":"T4"},{"kind":"assumption","id":"A1","text":"Stripe is the payment provider. The plan references Stripe objects but never says it is mandated.","task":"T2","confidence":"medium","impact":"high"},{"kind":"assumption","id":"A4","text":"Prorate seat changes to the day, matching Stripe default behaviour.","task":"T5","confidence":"low","impact":"high"}],"health":{"value":"at-risk","derived":"at-risk","reported":"at-risk"}},{"slug":"upgrade-node-22","rev":12,"archived":true,"resumes":[],"goal":{"title":"Upgrade to Node 22","desc":"Move CI and production images from Node 18 to 22.","plan":"","ts":"2026-10-05T10:10:55.705Z"},"tasks":[{"id":"N1","title":"Update CI images","desc":"","owner":"devops-1","reviewer":null,"phase":null,"deps":[],"status":"done","result":"CI matrix now on Node 22","blocker":null,"createdAt":"2026-10-05T10:10:55.766Z","updatedAt":"2026-10-05T10:10:55.940Z","history":[{"ts":"2026-10-05T10:10:55.850Z","status":"active","by":"devops-1","text":""},{"ts":"2026-10-05T10:10:55.940Z","status":"done","by":"devops-1","text":"CI matrix now on Node 22"}],"implicit":false,"doneBy":"devops-1","waitingOn":[],"ready":false},{"id":"N2","title":"Fix deprecated API usage","desc":"","owner":"backend-1","reviewer":null,"phase":null,"deps":["N1"],"status":"done","result":"Replaced 4 deprecated calls","blocker":null,"createdAt":"2026-10-05T10:10:55.766Z","updatedAt":"2026-10-05T10:10:56.121Z","history":[{"ts":"2026-10-05T10:10:56.031Z","status":"active","by":"backend-1","text":""},{"ts":"2026-10-05T10:10:56.121Z","status":"done","by":"backend-1","text":"Replaced 4 deprecated calls"}],"implicit":false,"doneBy":"backend-1","waitingOn":[],"ready":false},{"id":"N3","title":"Roll out to production","desc":"","owner":"devops-1","reviewer":null,"phase":null,"deps":["N2"],"status":"done","result":"Rolled out with no errors","blocker":null,"createdAt":"2026-10-05T10:10:55.766Z","updatedAt":"2026-10-05T10:10:56.301Z","history":[{"ts":"2026-10-05T10:10:56.211Z","status":"active","by":"devops-1","text":""},{"ts":"2026-10-05T10:10:56.301Z","status":"done","by":"devops-1","text":"Rolled out with no errors"}],"implicit":false,"doneBy":"devops-1","waitingOn":[],"ready":false}],"assumptions":[],"asks":[],"notes":[],"report":{"ts":"2026-10-05T10:10:56.365Z","summary":"Upgrade finished across CI and production with no regressions.","health":"on-track","next":[],"risks":[],"by":null},"activity":[{"ts":"2026-10-05T10:10:55.705Z","kind":"goal","text":"Goal set: Upgrade to Node 22","task":null,"by":null},{"ts":"2026-10-05T10:10:55.766Z","kind":"plan","text":"Planned 3 tasks","task":null,"by":null,"count":3},{"ts":"2026-10-05T10:10:55.850Z","kind":"active","text":"Started N1 · Update CI images","task":"N1","by":"devops-1"},{"ts":"2026-10-05T10:10:55.940Z","kind":"done","text":"Finished N1 · Update CI images — CI matrix now on Node 22","task":"N1","by":"devops-1"},{"ts":"2026-10-05T10:10:56.031Z","kind":"active","text":"Started N2 · Fix deprecated API usage","task":"N2","by":"backend-1"},{"ts":"2026-10-05T10:10:56.121Z","kind":"done","text":"Finished N2 · Fix deprecated API usage — Replaced 4 deprecated calls","task":"N2","by":"backend-1"},{"ts":"2026-10-05T10:10:56.211Z","kind":"active","text":"Started N3 · Roll out to production","task":"N3","by":"devops-1"},{"ts":"2026-10-05T10:10:56.301Z","kind":"done","text":"Finished N3 · Roll out to production — Rolled out with no errors","task":"N3","by":"devops-1"},{"ts":"2026-10-05T10:10:56.365Z","kind":"report","text":"Status report: Upgrade finished across CI and production with no regressions.","task":null,"by":null},{"ts":"2026-10-05T10:10:56.424Z","kind":"archive","text":"Goal archived","task":null,"by":null}],"startedAt":"2026-10-05T10:10:55.705Z","updatedAt":"2026-10-05T10:10:56.424Z","counts":{"todo":0,"active":0,"review":0,"blocked":0,"failed":0,"done":3,"dropped":0},"progress":{"total":3,"done":3,"pct":100},"phases":[],"attention":[],"health":{"value":"complete","derived":"complete","reported":"on-track"}}],"generatedAt":"2026-10-05T10:11:30.599Z"};
+(function () {
+  'use strict';
+
+  var INITIAL = window.__GP_DATA__;
+  var LIVE = INITIAL == null;
+  var data = INITIAL;            // { goals: [state, ...] }
+  var state = null;              // the goal currently on screen
+  var conn = LIVE ? 'connecting' : 'snapshot';
+  var ui = { view: 'list', filter: null, expanded: {}, more: {}, showArchived: false, nav: undefined };
+  var seen = null;               // task id -> "status|updatedAt", used to flash changes
+  var seenGoal = null;
+  var QUIET_MIN = 30;            // live only: active/review tasks with no update for this long get a chip
+
+  try { var v = localStorage.getItem('gp.view'); if (v === 'board' || v === 'list') ui.view = v; } catch (e) {}
+
+  var ST = {
+    todo:    { label: 'To do' },
+    active:  { label: 'In progress' },
+    review:  { label: 'In review' },
+    blocked: { label: 'Blocked' },
+    failed:  { label: 'Failed' },
+    done:    { label: 'Done' },
+    dropped: { label: 'Dropped' }
+  };
+  var HEALTH = { 'on-track': 'On track', 'at-risk': 'At risk', blocked: 'Blocked', complete: 'Complete', planning: 'Planning' };
+  var KIND_GLYPH = { goal: '◆', plan: '≡', assume: '~', resolve: '✓', note: '•', decision: '◆', finding: '◇', risk: '▲',
+    ask: '?', answer: '✓', report: '¶', resume: '↻', archive: '▤', unarchive: '▤' };
+  var AV = ['#5b66d6', '#2f9e6b', '#d29a0b', '#d9731f', '#c2478b', '#3b8fc9', '#8a63d2', '#4aa3a0'];
+
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var cap = function (s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
+
+  function ago(ts) {
+    if (!ts) return '';
+    var d = (Date.now() - new Date(ts).getTime()) / 1000;
+    if (d < 5) return 'now';
+    if (d < 60) return Math.floor(d) + 's';
+    if (d < 3600) return Math.floor(d / 60) + 'm';
+    if (d < 86400) return Math.floor(d / 3600) + 'h';
+    return Math.floor(d / 86400) + 'd';
+  }
+  function agoLong(ts) { var a = ago(ts); return !a ? '' : a === 'now' ? 'just now' : a + ' ago'; }
+  function span(a, b) {
+    var d = Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 1000);
+    if (d < 60) return Math.round(d) + 's';
+    if (d < 3600) return Math.round(d / 60) + 'm';
+    var h = d / 3600;
+    return h < 48 ? (Math.round(h * 10) / 10) + 'h' : Math.round(h / 24) + 'd';
+  }
+
+  /* ---------- small visual parts ---------- */
+
+  // Status glyphs: outline = not started, filling pie = progress, solid check = done.
+  function icon(st, size) {
+    size = size || 14;
+    var ring = '<circle cx="7" cy="7" r="5.6" fill="none" stroke="currentColor" stroke-width="1.5"' + (st === 'todo' ? ' stroke-dasharray="2.4 2.2"' : '') + '/>';
+    var inner = '';
+    if (st === 'active') inner = '<path d="M7 3.6a3.4 3.4 0 0 1 0 6.8z" fill="currentColor"/>';
+    else if (st === 'review') inner = '<path d="M7 7V3.6A3.4 3.4 0 1 1 3.6 7z" fill="currentColor"/>';
+    else if (st === 'blocked') inner = '<path d="M4.6 7h4.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>';
+    else if (st === 'dropped') inner = '<path d="M4.8 9.2l4.4-4.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>';
+    if (st === 'done') {
+      ring = '<circle cx="7" cy="7" r="6.4" fill="currentColor"/>';
+      inner = '<path d="M4.3 7.2l1.9 1.9 3.5-3.9" fill="none" stroke="var(--on)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+    } else if (st === 'failed') {
+      ring = '<circle cx="7" cy="7" r="6.4" fill="currentColor"/>';
+      inner = '<path d="M4.9 4.9l4.2 4.2M9.1 4.9L4.9 9.1" stroke="var(--on)" stroke-width="1.5" stroke-linecap="round"/>';
+    }
+    return '<span class="ic s-' + st + '" aria-hidden="true"><svg width="' + size + '" height="' + size + '" viewBox="0 0 14 14">' + ring + inner + '</svg></span>';
+  }
+
+  function ring(pct, health) {
+    var r = 5.5, c = 2 * Math.PI * r;
+    return '<span class="ic h-' + esc(health) + '" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16">' +
+      '<circle cx="8" cy="8" r="' + r + '" fill="none" stroke="var(--line2)" stroke-width="2"/>' +
+      '<circle cx="8" cy="8" r="' + r + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="' + (c * pct / 100).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg></span>';
+  }
+
+  function avatar(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return '<span class="av" style="--avc:' + AV[h % AV.length] + '">' + esc(name.charAt(0).toUpperCase()) + '</span>';
+  }
+  function owner(name) { return name ? '<span class="own">' + avatar(name) + '<span>' + esc(name) + '</span></span>' : '<span class="own"></span>'; }
+
+  function stack(c, total, titles) {
+    if (!total) return '';
+    return ['done', 'review', 'active', 'blocked', 'failed'].filter(function (k) { return c[k]; }).map(function (k) {
+      return '<span class="seg-' + k + '" style="width:' + (100 * c[k] / total) + '%"' + (titles ? ' title="' + ST[k].label + ': ' + c[k] + '"' : '') + '></span>';
+    }).join('');
+  }
+
+  function connLabel() {
+    var label = { live: 'Live', connecting: 'Connecting', offline: 'Offline, retrying', snapshot: 'Snapshot' }[conn];
+    return '<span class="live ' + (conn === 'live' ? 'on' : conn === 'offline' ? 'offline' : '') + '"><i></i>' + label + '</span>';
+  }
+
+  /* ---------- shell ---------- */
+
+  function sidebar(goals, cur) {
+    var open = goals.filter(function (g) { return !g.archived; });
+    var archived = goals.filter(function (g) { return g.archived; });
+    open.sort(function (a, b) { return goalRank(a) - goalRank(b) || new Date(b.updatedAt) - new Date(a.updatedAt); });
+    function item(g) {
+      var n = g.attention.length;
+      return '<div class="nav" role="button" tabindex="0" data-act="open" data-v="' + esc(g.slug) + '"' + (cur && cur.slug === g.slug ? ' aria-current="page"' : '') + '>' +
+        ring(g.progress.pct, g.health.value) + '<span class="t">' + esc(g.goal ? g.goal.title : g.slug) + '</span>' + (n ? '<span class="badge" title="Needs you">' + n + '</span>' : '') + '</div>';
+    }
+    return '<nav class="side" aria-label="Goals"><div class="brand"><i></i>goalpulse</div>' +
+      '<div class="nav" role="button" tabindex="0" data-act="home"' + (!cur ? ' aria-current="page"' : '') + '><span class="t">All goals</span></div>' +
+      '<div class="side-h">Active</div>' + open.map(item).join('') +
+      (archived.length ? '<div class="side-h">Archived</div>' + archived.map(item).join('') : '') +
+      '<div class="side-ft">' + connLabel() + '</div></nav>';
+  }
+
+  function topbar(multi, title) {
+    return '<div class="bar-top"><div class="crumb">' +
+      (multi ? '<button class="back" data-act="home"><span class="mtop">‹ </span>Goals</button><span>/</span>' : '<span>goalpulse</span><span>/</span>') +
+      '<b>' + esc(title) + '</b></div>' + connLabel() + '</div>';
+  }
+
+  /* ---------- goal view ---------- */
+
+  function header(s) {
+    var g = s.goal;
+    var done = s.health.value === 'complete';
+    var running = done ? span(s.startedAt, s.updatedAt) : span(s.startedAt, new Date().toISOString());
+    var resumed = s.resumes && s.resumes.length ? ' · resumed ' + s.resumes.length + '×' : '';
+    return '<h1>' + esc(g ? g.title : 'No goal set yet') + (s.archived ? ' <span class="chip">archived</span>' : '') + '</h1>' +
+      (g && g.desc ? '<p class="sub">' + esc(g.desc) + '</p>' : '') +
+      '<div class="props">' +
+      '<span class="prop h-' + esc(s.health.value) + '"><span class="ic"><svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg></span><b>' + esc(HEALTH[s.health.value] || s.health.value) + '</b></span>' +
+      '<span class="prop">' + ring(s.progress.pct, s.health.value) + '<b>' + s.progress.pct + '%</b> ' + s.progress.done + ' of ' + s.progress.total + ' tasks</span>' +
+      (s.updatedAt ? '<span class="prop">' + (done ? 'Took ' : 'Running ') + '<b>' + running + '</b>' + esc(resumed) + '</span><span class="prop">Updated <b>' + esc(agoLong(s.updatedAt)) + '</b></span>' : '') +
+      (g && g.plan ? '<span class="prop">Plan <span class="mono">' + esc(g.plan) + '</span></span>' : '') + '</div>';
+  }
+
+  function reportSection(s) {
+    var r = s.report;
+    var body;
+    if (!r) {
+      body = '<div class="update muted">No update yet. The coordinator posts one after each wave of work.</div>';
+    } else {
+      body = '<div class="update"><div class="up-hd h-' + esc(s.health.value) + '"><b>' + esc(HEALTH[s.health.value] || s.health.value) + '</b><span>' + esc(agoLong(r.ts)) + (r.by ? ' by ' + esc(r.by) : '') + '</span></div>' +
+        '<p class="summary">' + esc(r.summary) + '</p>' +
+        ((r.next && r.next.length) || (r.risks && r.risks.length) ? '<div class="cols2">' +
+          '<div>' + (r.next && r.next.length ? '<h3>Next up</h3><ul>' + r.next.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
+          '<div>' + (r.risks && r.risks.length ? '<h3>Risks</h3><ul class="risks">' + r.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div></div>' : '') +
+        '</div>';
+    }
+    return '<section class="sec"><div class="sec-hd"><h2>Coordinator update</h2></div><div class="box">' + body + '</div></section>';
+  }
+
+  function progressSection(s) {
+    var p = s.progress, c = s.counts;
+    var legend = ['done', 'review', 'active', 'blocked', 'failed', 'todo'].filter(function (k) { return c[k]; }).map(function (k) {
+      return '<span>' + icon(k, 12) + ST[k].label + ' <b>' + c[k] + '</b></span>';
+    }).join('');
+    var phases = s.phases && s.phases.length ? '<div class="phases">' + s.phases.map(function (ph) {
+      return '<div class="phase"><span>' + esc(ph.name) + '</span><div class="mini"><span style="width:' + (ph.total ? 100 * ph.done / ph.total : 0) + '%"></span></div>' +
+        '<span class="muted">' + ph.done + '/' + ph.total + '</span></div>';
+    }).join('') + '</div>' : '';
+    return '<section class="sec"><div class="sec-hd"><h2>Progress</h2></div><div class="box prog">' +
+      '<div class="stack" role="img" aria-label="' + p.pct + ' percent complete">' + stack(c, p.total, true) + '</div>' +
+      '<div class="legend">' + (legend || '<span>No tasks yet</span>') + '</div>' + phases + '</div></section>';
+  }
+
+  function attention(s) {
+    if (!s.attention.length) return '';
+    var items = s.attention.map(function (a) {
+      var cls = a.kind === 'question' ? 'a-q' : 'a-' + a.kind;
+      var k = { question: 'Question', blocked: 'Blocked', failed: 'Failed', assumption: 'Confirm assumption' }[a.kind];
+      var target = a.kind === 'assumption' ? 'assume:' + a.id : a.task ? 'task:' + a.task : '';
+      var chips = a.kind === 'assumption' ? '<span class="chips"><span class="chip ' + (a.confidence === 'low' ? 'lvl-low' : '') + '">confidence ' + esc(a.confidence) + '</span><span class="chip ' + (a.impact === 'high' ? 'lvl-high-impact' : '') + '">impact ' + esc(a.impact) + '</span></span>' : '<span></span>';
+      return '<button class="arow ' + cls + '" data-act="jump" data-v="' + esc(target) + '"><span class="k"><i></i>' + k + '</span>' +
+        '<span class="tx"><span class="mono">' + esc(a.id) + '</span>' + esc(a.title ? a.title + ': ' : '') + esc(a.text) + '</span>' + chips + '</button>';
+    }).join('');
+    return '<section class="sec"><div class="sec-hd"><h2>Needs your attention<span class="n">' + s.attention.length + '</span></h2></div><div class="box attn">' + items + '</div></section>';
+  }
+
+  function taskChips(t, s) {
+    var meta = '';
+    if (t.ready) meta += '<span class="chip ready">ready</span>';
+    if (LIVE && (t.status === 'active' || t.status === 'review')) {
+      var quiet = (Date.now() - new Date(t.updatedAt).getTime()) / 60000;
+      if (quiet > QUIET_MIN) meta += '<span class="chip warn" title="No update for a while; the agent may have stopped">quiet ' + (quiet < 120 ? Math.round(quiet) + 'm' : Math.round(quiet / 60) + 'h') + '</span>';
+    }
+    if (t.waitingOn && t.waitingOn.length) meta += '<span class="chip">waits on ' + esc(t.waitingOn.join(', ')) + '</span>';
+    var risky = s.assumptions.filter(function (a) { return a.task === t.id && a.status === 'open'; });
+    if (risky.length) meta += '<span class="chip ' + (risky.some(function (a) { return a.confidence === 'low' || a.impact === 'high'; }) ? 'warn' : '') + '">' + risky.length + ' assumption' + (risky.length > 1 ? 's' : '') + '</span>';
+    if (t.phase) meta += '<span class="chip">' + esc(t.phase) + '</span>';
+    return meta;
+  }
+
+  function taskDetail(t, s) {
+    var linked = s.assumptions.filter(function (a) { return a.task === t.id; });
+    return '<div class="detail">' +
+      (t.desc ? '<div>' + esc(t.desc) + '</div>' : '') +
+      (t.deps && t.deps.length ? '<div><span class="muted">Depends on</span> ' + esc(t.deps.join(', ')) + '</div>' : '') +
+      (t.status !== 'done' && t.result ? '<div>' + esc(t.result) + '</div>' : '') +
+      (linked.length ? '<div>' + linked.map(function (a) { return '<button class="link" data-act="jump" data-v="assume:' + esc(a.id) + '">' + esc(a.id) + '</button> ' + esc(a.text); }).join('<br>') + '</div>' : '') +
+      '<div class="hist">' + t.history.slice(-6).map(function (h) {
+        return '<div><b>' + esc(ST[h.status] ? ST[h.status].label : h.status) + '</b>' + (h.by ? ' · ' + esc(h.by) : '') + ' · ' + esc(agoLong(h.ts)) + (h.text ? ': ' + esc(h.text) : '') + '</div>';
+      }).join('') + '</div></div>';
+  }
+
+  function taskNote(t) {
+    if (t.status === 'done') return t.result || '';
+    if (t.status === 'blocked' || t.status === 'failed') return t.blocker || '';
+    return '';
+  }
+
+  function taskRow(t, s, flashIds) {
+    var open = ui.expanded['task:' + t.id];
+    var who = t.status === 'review' ? (t.reviewer || t.owner) : t.owner;
+    var note = taskNote(t);
+    return '<div class="trow s-' + t.status + (flashIds[t.id] ? ' flash' : '') + '" id="task-' + esc(t.id) + '" role="button" tabindex="0" aria-expanded="' + !!open + '" data-act="toggle" data-v="task:' + esc(t.id) + '">' +
+      '<div class="tr">' + icon(t.status) + '<span class="tid">' + esc(t.id) + '</span><span class="ttl">' + esc(t.title) + '</span>' +
+      '<span class="chips">' + taskChips(t, s) + '</span>' + owner(who) + '<span class="when">' + esc(ago(t.updatedAt)) + '</span></div>' +
+      (note && !open ? '<div class="sub-line">' + esc(note) + '</div>' : '') + (open ? taskDetail(t, s) : '') + '</div>';
+  }
+
+  var GROUPS = [
+    { key: 'active', label: 'In progress' }, { key: 'review', label: 'In review' }, { key: 'blocked', label: 'Blocked' },
+    { key: 'failed', label: 'Failed' }, { key: 'todo', label: 'To do' }, { key: 'done', label: 'Done' }, { key: 'dropped', label: 'Dropped' }
+  ];
+  function byRecent(a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); }
+
+  function listView(s, flashIds) {
+    var out = '';
+    GROUPS.forEach(function (g) {
+      var list = s.tasks.filter(function (t) { return t.status === g.key; });
+      if (!list.length) return;
+      list.sort(g.key === 'todo' ? function (a, b) { return (b.ready ? 1 : 0) - (a.ready ? 1 : 0); } : byRecent);
+      var collapsed = (g.key === 'done' || g.key === 'dropped') && !ui.more[g.key];
+      var shown = collapsed ? list.slice(0, 5) : list;
+      out += '<div class="grp s-' + g.key + '">' + icon(g.key) + '<b>' + g.label + '</b><span class="n">' + list.length + '</span></div>' +
+        shown.map(function (t) { return taskRow(t, s, flashIds); }).join('') +
+        (list.length > shown.length ? '<button class="more" data-act="more" data-v="' + g.key + '">Show all ' + list.length + '</button>' : '');
+    });
+    return '<div class="box" style="overflow:hidden">' + out + '</div>';
+  }
+
+  function board(s, flashIds) {
+    var cols = [
+      { key: 'todo', label: 'To do', pick: function (t) { return t.status === 'todo'; } },
+      { key: 'active', label: 'In progress', pick: function (t) { return t.status === 'active'; } },
+      { key: 'review', label: 'In review', pick: function (t) { return t.status === 'review'; } },
+      { key: 'blocked', label: 'Blocked / failed', pick: function (t) { return t.status === 'blocked' || t.status === 'failed'; } },
+      { key: 'done', label: 'Done', pick: function (t) { return t.status === 'done'; } }
+    ];
+    return '<div class="board">' + cols.map(function (c) {
+      var list = s.tasks.filter(c.pick).sort(c.key === 'todo' ? function (a, b) { return (b.ready ? 1 : 0) - (a.ready ? 1 : 0); } : byRecent);
+      var limit = c.key === 'done' && !ui.more.done ? 6 : list.length;
+      return '<div class="col"><div class="col-hd">' + icon(c.key) + '<span>' + c.label + '</span><span class="n">' + list.length + '</span></div>' +
+        (list.length ? list.slice(0, limit).map(function (t) {
+          var open = ui.expanded['task:' + t.id], note = taskNote(t), who = t.status === 'review' ? (t.reviewer || t.owner) : t.owner;
+          return '<article class="card s-' + t.status + (flashIds[t.id] ? ' flash' : '') + '" id="task-' + esc(t.id) + '" role="button" tabindex="0" data-act="toggle" data-v="task:' + esc(t.id) + '">' +
+            '<div class="tid">' + (c.key === 'blocked' ? icon(t.status, 12) : '') + esc(t.id) + (who ? ' ' + owner(who) : '') + '</div><h4>' + esc(t.title) + '</h4>' +
+            '<div class="chips">' + taskChips(t, s) + '</div>' + (note && !open ? '<p class="res">' + esc(note) + '</p>' : '') + (open ? taskDetail(t, s) : '') + '</article>';
+        }).join('') : '<div class="muted small" style="padding:4px 6px">Nothing here</div>') +
+        (list.length > limit ? '<button class="more" data-act="more" data-v="done">Show all ' + list.length + '</button>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  function tasksSection(s, flashIds) {
+    if (!s.tasks.length) return '';
+    return '<section class="sec"><div class="sec-hd"><h2>Tasks<span class="n">' + s.tasks.length + '</span></h2><div class="tabs" role="group" aria-label="View">' +
+      '<button data-act="view" data-v="list" aria-pressed="' + (ui.view === 'list') + '">List</button>' +
+      '<button data-act="view" data-v="board" aria-pressed="' + (ui.view === 'board') + '">Board</button></div></div>' +
+      (ui.view === 'board' ? board(s, flashIds) : listView(s, flashIds)) + '</section>';
+  }
+
+  function needsReview(a) { return a.status === 'open' && (a.impact === 'high' || a.confidence === 'low'); }
+
+  function assumptionsSection(s) {
+    if (!s.assumptions.length) return '';
+    var counts = {
+      review: s.assumptions.filter(needsReview).length,
+      open: s.assumptions.filter(function (a) { return a.status === 'open'; }).length,
+      all: s.assumptions.length,
+      resolved: s.assumptions.filter(function (a) { return a.status !== 'open'; }).length
+    };
+    var f = ui.filter || (counts.review ? 'review' : 'all');
+    var pass = { review: needsReview, open: function (a) { return a.status === 'open'; }, all: function () { return true; }, resolved: function (a) { return a.status !== 'open'; } }[f];
+    var rank = { high: 0, medium: 1, low: 2 };
+    var list = s.assumptions.filter(pass).sort(function (a, b) {
+      if ((a.status === 'open') !== (b.status === 'open')) return a.status === 'open' ? -1 : 1;
+      return (needsReview(b) ? 1 : 0) - (needsReview(a) ? 1 : 0) || rank[a.impact] - rank[b.impact];
+    });
+    var tabs = [['review', 'Needs review'], ['open', 'Open'], ['all', 'All'], ['resolved', 'Resolved']].map(function (t) {
+      return '<button data-act="filter" data-v="' + t[0] + '" aria-pressed="' + (f === t[0]) + '">' + t[1] + '<span class="n">' + counts[t[0]] + '</span></button>';
+    }).join('');
+    var rows = list.map(function (a) {
+      var closed = a.status !== 'open';
+      return '<article class="as' + (needsReview(a) ? ' risky' : '') + (closed ? ' closed' : '') + '" id="assume-' + esc(a.id) + '">' +
+        '<div class="as-top"><span class="id mono">' + esc(a.id) + '</span><h4>' + esc(a.text) + '</h4><span class="chips">' +
+        (closed ? '<span class="chip rs-' + esc(a.status) + '">' + cap(esc(a.status)) + '</span>' : '') +
+        '<span class="chip ' + (a.confidence === 'low' ? 'lvl-low' : a.confidence === 'high' ? 'lvl-good' : '') + '">confidence ' + esc(a.confidence) + '</span>' +
+        '<span class="chip ' + (a.impact === 'high' ? 'lvl-high-impact' : '') + '">impact ' + esc(a.impact) + '</span>' +
+        (a.task ? '<button class="link mono" data-act="jump" data-v="task:' + esc(a.task) + '">' + esc(a.task) + '</button>' : '') + '</span></div>' +
+        (a.why ? '<p class="why"><b>Why</b> ' + esc(a.why) + '</p>' : '') +
+        (a.alt ? '<p class="why"><b>Alternative</b> ' + esc(a.alt) + '</p>' : '') +
+        (a.note ? '<p class="why"><b>Resolution</b> ' + esc(a.note) + (a.by ? ' · ' + esc(a.by) : '') + '</p>' : (a.by ? '<p class="why">' + esc(a.by) + '</p>' : '')) + '</article>';
+    }).join('');
+    return '<section class="sec"><div class="sec-hd"><h2>Assumptions and best guesses</h2><div class="tabs" role="group" aria-label="Filter">' + tabs + '</div></div>' +
+      '<div class="box">' + (rows || '<div class="empty">Nothing in this filter.</div>') + '</div></section>';
+  }
+
+  function activitySection(s) {
+    if (!s.activity.length) return '';
+    var all = s.activity.slice().reverse();
+    var shown = ui.more.activity ? all.slice(0, 120) : all.slice(0, 12);
+    return '<section class="sec"><div class="sec-hd"><h2>Activity</h2></div><div class="box" style="overflow:hidden">' +
+      shown.map(function (e) {
+        var g = ST[e.kind] ? icon(e.kind, 12) : '<span class="g">' + (KIND_GLYPH[e.kind] || '•') + '</span>';
+        return '<div class="ev k-' + esc(e.kind) + '">' + g + '<div class="t2">' + esc(e.text) + (e.by ? ' <span class="by">· ' + esc(e.by) + '</span>' : '') + '</div><span class="muted">' + esc(ago(e.ts)) + '</span></div>';
+      }).join('') +
+      (all.length > shown.length ? '<button class="more" data-act="more" data-v="activity">Show more (' + (Math.min(all.length, 120) - shown.length) + ')</button>' : '') +
+      '</div></section>';
+  }
+
+  function onboarding() {
+    return '<div class="box onboard"><h2>Waiting for the first event</h2><p style="margin-top:6px">Nothing has been logged yet. Tell your agent to use goalpulse, or run:</p>' +
+      '<code>goalpulse goal "Ship team billing" --plan docs/plan.md</code>' +
+      '<code>goalpulse add "Audit existing billing code" --id T1 --phase Discovery</code>' +
+      '<code>goalpulse start T1 --by explorer-1</code></div>';
+  }
+
+  /* ---------- goals overview ---------- */
+
+  function goalRank(g) { return g.archived ? 3 : g.health.value === 'complete' ? 2 : g.attention.length ? 0 : 1; }
+
+  function goalRow(g) {
+    var p = g.progress, attn = g.attention.length;
+    var sum = g.report ? g.report.summary : (g.goal && g.goal.desc) || '';
+    return '<div class="gcard" role="button" tabindex="0" data-act="open" data-v="' + esc(g.slug) + '">' +
+      ring(p.pct, g.health.value) +
+      '<div class="gc-t"><b>' + esc(g.goal ? g.goal.title : g.slug) + '</b><span>' + esc(sum) + '</span></div>' +
+      '<span class="hp h-' + esc(g.health.value) + '"><i></i>' + esc(HEALTH[g.health.value] || g.health.value) + '</span>' +
+      '<div class="gc-p"><div class="stack">' + stack(g.counts, p.total) + '</div><span>' + p.pct + '%</span></div>' +
+      '<span>' + (attn ? '<span class="chip warn">' + attn + ' need' + (attn === 1 ? 's' : '') + ' you</span>' : '') + '</span>' +
+      '<span class="when">' + esc(ago(g.updatedAt)) + '</span></div>';
+  }
+
+  function overview(goals) {
+    var open = goals.filter(function (g) { return !g.archived; });
+    var archived = goals.filter(function (g) { return g.archived; });
+    open.sort(function (a, b) { return goalRank(a) - goalRank(b) || new Date(b.updatedAt) - new Date(a.updatedAt); });
+    var needs = open.reduce(function (n, g) { return n + g.attention.length; }, 0);
+    var head = '<div class="gh"><span></span><span>Goal</span><span>Health</span><span>Progress</span><span>Attention</span><span style="text-align:right">Updated</span></div>';
+    return '<h1>Goals</h1><p class="sub">' + open.length + ' active' + (needs ? ', ' + needs + ' item' + (needs === 1 ? '' : 's') + ' waiting on you' : '') + '</p>' +
+      '<section class="sec"><div class="box" style="overflow:hidden">' + head + open.map(goalRow).join('') +
+      (archived.length ? '<button class="more" data-act="archived">' + (ui.showArchived ? 'Hide' : 'Show') + ' archived (' + archived.length + ')</button>' +
+        (ui.showArchived ? archived.map(goalRow).join('') : '') : '') + '</div></section>' +
+      '<div class="foot">' + goals.length + ' goals' + (conn === 'snapshot' ? '. Static snapshot: run <span class="mono">goalpulse dashboard</span> for live updates.' : '') + '</div>';
+  }
+
+  /* ---------- render ---------- */
+
+  // Navigation lives in page state (ui.nav), so it works even where URL hashes do not
+  // (sandboxed frames, preview panes). The hash is only an optional deep link.
+  function route() {
+    if (ui.nav !== undefined) return ui.nav;
+    var m = /^#\/([a-z0-9-]+)$/.exec(location.hash);
+    return m ? m[1] : null;
+  }
+
+  function navigate(slug) {
+    ui.nav = slug; // a goal slug, or null for the overview
+    try { location.hash = slug ? '#/' + slug : ''; } catch (e) { /* hash not available here: state is enough */ }
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function shell(goals, cur, title, inner, multi) {
+    return '<div class="app' + (multi ? '' : ' solo') + '">' + (multi ? sidebar(goals, cur) : '') +
+      '<div class="main">' + topbar(multi, title) + '<div class="page">' + inner + '</div></div></div>';
+  }
+
+  function render() {
+    var app = document.getElementById('app');
+    var a = document.activeElement, fa = a && a.getAttribute && a.getAttribute('data-act'), fv = a && a.getAttribute && a.getAttribute('data-v');
+    paint(app);
+    if (fa) { // keep keyboard focus on the same control across re-renders
+      var el = Array.prototype.filter.call(document.querySelectorAll('[data-act]'), function (n) { return n.getAttribute('data-act') === fa && n.getAttribute('data-v') === fv; })[0];
+      if (el && el !== document.activeElement) el.focus({ preventScroll: true });
+    }
+  }
+
+  function paint(app) {
+    if (!data) {
+      app.innerHTML = '<div class="page muted">' + (conn === 'offline' ? 'Cannot reach the goalpulse server. Is <span class="mono">goalpulse dashboard</span> running?' : 'Loading') + '</div>';
+      return;
+    }
+    var goals = data.goals || [];
+    var slug = route();
+    var cur = null;
+    if (slug) cur = goals.filter(function (g) { return g.slug === slug; })[0] || null;
+    else if (goals.length === 1) cur = goals[0];
+    var multi = goals.length > 1;
+    var y0 = window.scrollY;
+
+    if (!goals.length) {
+      app.innerHTML = shell(goals, null, 'No goals yet', '<h1>No goals yet</h1><section class="sec">' + onboarding() + '</section>', false);
+      document.title = 'Goal progress';
+    } else if (!cur && slug) {
+      app.innerHTML = shell(goals, null, 'Not found', '<p class="muted">No goal called <span class="mono">' + esc(slug) + '</span>.</p>', multi);
+    } else if (!cur) {
+      app.innerHTML = shell(goals, null, 'All goals', overview(goals), true);
+      document.title = 'Goals · ' + goals.length;
+    } else {
+      state = cur;
+      renderGoal(app, goals, multi);
+    }
+    window.scrollTo(0, y0);
+  }
+
+  function renderGoal(app, goals, multi) {
+    if (seenGoal !== state.slug) { // switching goals: drop per-goal UI state and change tracking
+      seen = null; seenGoal = state.slug;
+      ui.expanded = {}; ui.more = {}; ui.filter = null;
+    }
+    // Which tasks changed since the last render (not on first paint).
+    var flashIds = {};
+    var now = {};
+    state.tasks.forEach(function (t) { now[t.id] = t.status + '|' + t.updatedAt; if (seen && seen[t.id] !== now[t.id]) flashIds[t.id] = true; });
+    seen = now;
+
+    var empty = !state.goal && !state.tasks.length;
+    var inner = header(state) + (empty ? '<section class="sec">' + onboarding() + '</section>' :
+      reportSection(state) + attention(state) + progressSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
+      '<div class="foot">' + state.rev + ' events' + (conn === 'snapshot' ? '. Static snapshot: run <span class="mono">goalpulse dashboard</span> for live updates.' : '') + '</div>');
+    app.innerHTML = shell(goals, state, state.goal ? state.goal.title : state.slug, inner, multi);
+    document.title = (state.progress.total ? state.progress.pct + '% · ' : '') + (state.goal ? state.goal.title : 'Goal progress');
+  }
+
+  function jump(target) {
+    var parts = target.split(':');
+    if (parts[0] === 'assume') ui.filter = 'all';
+    if (parts[0] === 'task') { ui.expanded['task:' + parts[1]] = true; ui.more.done = true; ui.more.dropped = true; }
+    render();
+    var el = document.getElementById((parts[0] === 'assume' ? 'assume-' : 'task-') + parts[1]);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('flash');
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]');
+    if (!el) return;
+    var act = el.getAttribute('data-act'), v = el.getAttribute('data-v');
+    if (act === 'view') { ui.view = v; try { localStorage.setItem('gp.view', v); } catch (x) {} render(); }
+    else if (act === 'filter') { ui.filter = v; render(); }
+    else if (act === 'toggle') { if (e.target.closest('.detail')) return; ui.expanded[v] = !ui.expanded[v]; render(); }
+    else if (act === 'more') { ui.more[v] = true; render(); }
+    else if (act === 'jump') { e.stopPropagation(); jump(v); }
+    else if (act === 'archived') { ui.showArchived = !ui.showArchived; render(); }
+    else if (act === 'open') navigate(v);
+    else if (act === 'home') navigate(null);
+  });
+
+  // Keyboard: Enter / Space activates anything that acts as a button.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target;
+    if (!el || !el.getAttribute || el.getAttribute('role') !== 'button') return;
+    e.preventDefault();
+    el.click();
+  });
+
+  /* ---------- data ---------- */
+
+  function sigOf(d) { return (d.goals || []).map(function (g) { return g.slug + ':' + g.rev + ':' + g.archived; }).join('|'); }
+
+  function poll() {
+    fetch('api/goals', { headers: { Accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        var changed = !data || sigOf(d) !== sigOf(data) || conn !== 'live';
+        data = d; conn = 'live';
+        if (changed) render();
+      })
+      .catch(function () { if (conn !== 'offline') { conn = 'offline'; render(); } });
+  }
+
+  // When the hash changes (back/forward, a pasted deep link) it becomes the source of truth again.
+  window.addEventListener('hashchange', function () { ui.nav = undefined; render(); window.scrollTo(0, 0); });
+  render();
+  if (LIVE) { poll(); setInterval(poll, 2000); }
+  setInterval(function () { if (data) render(); }, 15000); // keep "x ago" labels fresh
+})();
+</script>
+</body>
+</html>
