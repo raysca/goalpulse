@@ -1,7 +1,7 @@
 {
   "name": "goalpulse",
   "description": "Tell your agent to use goalpulse and watch its progress, assumptions and questions on a live dashboard. Supports several goals at once and resuming a goal.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "license": "MIT",
   "keywords": [
     "progress",
