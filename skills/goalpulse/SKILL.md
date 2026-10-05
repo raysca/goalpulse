@@ -9,7 +9,7 @@ You are the coordinator ("project manager"). Sub-agents report to you; **you** a
 
 ## Setup (do this first, silently)
 
-Run `goalpulse goals`. The plugin puts `goalpulse` on your PATH. If the command is not found, use `node <this skill's folder>/../../bin/goalpulse.js` instead (identical commands). It needs Node 18+; if Node is missing, tell the user.
+Run `goalpulse goals`. In Claude Code the plugin puts `goalpulse` on your PATH. If the command is not found, use `npx -y github:raysca/goalpulse <command>` instead (identical commands; or `npm install -g github:raysca/goalpulse` once). It needs Node 18+; if Node is missing, tell the user.
 
 When you create a goal (or resume one), start the dashboard and **give the user the URL in your reply**:
 

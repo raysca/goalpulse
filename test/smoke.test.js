@@ -13,4 +13,6 @@ test('create goal, add task, render snapshot', () => {
   run('goal', 'Smoke');
   assert.match(run('add', 'first task'), /T1 added/);
   assert.ok(fs.existsSync(run('render').trim()));
+  run('install-skill');
+  assert.ok(fs.existsSync(path.join(cwd, '.agents', 'skills', 'goalpulse', 'SKILL.md')));
 });

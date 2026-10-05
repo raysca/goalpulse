@@ -32,15 +32,26 @@ Requires Node.js 18+. No other dependencies, nothing to configure. Logs live in 
 
 Sub-agents report to the coordinator as usual; only the coordinator writes to the log, which keeps one voice.
 
-## Other agents and manual use
+## Codex, Antigravity and other agents
+
+The skill is a single `SKILL.md` ([Agent Skills format](https://agentskills.io)), and the only other thing an agent needs is the `goalpulse` command.
 
 ```bash
-npm install -g github:raysca/goalpulse     # puts `goalpulse` on PATH
+npm install -g github:raysca/goalpulse      # puts `goalpulse` on PATH (Node 18+)
+cd your-project
+goalpulse install-skill                     # -> .agents/skills/goalpulse (Codex, Antigravity)
+goalpulse install-skill --global            # -> ~/.agents/skills (Codex, every project)
+goalpulse install-skill --agent claude      # -> .claude/skills, if you skip the plugin
+```
+
+Then tell the agent: *"Use goalpulse to report progress on this."* If `goalpulse` is not on PATH the skill falls back to `npx -y github:raysca/goalpulse`.
+
+For agents without skills support (Cursor, Copilot, Aider, ...), paste `skills/goalpulse/SKILL.md` into `AGENTS.md` or the goal prompt. The contract is just the CLI.
+
+```bash
 goalpulse dashboard --open                    # background dashboard
 npm run demo                                  # simulated run, three goals
 ```
-
-Without the plugin, copy `skills/goalpulse/` into `.claude/skills/` (or `~/.claude/skills/`), or paste `skills/goalpulse/SKILL.md` into your `AGENTS.md`/goal prompt; the contract is just the CLI. The plugin route puts `goalpulse` on the agent's PATH automatically; it is for Claude Code (not claude.ai).
 
 ## Multiple goals in one project
 

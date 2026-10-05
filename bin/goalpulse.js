@@ -24,6 +24,7 @@ Goals
   goalpulse archive | unarchive                hide / restore a goal on the dashboard
 
 Setup
+  goalpulse install-skill [--agent claude] [--global]   copy the skill into .agents/skills (Codex, Antigravity, ...) or .claude/skills
   goalpulse plan [--file plan.json]            register many tasks from JSON (file or stdin)
   goalpulse add "Title" [--id T4] [--deps T1,T2] [--phase "Build"] [--owner agent] [--desc "..."]
 
@@ -148,6 +149,16 @@ async function main() {
   }
 
   switch (cmd) {
+    case 'install-skill': {
+      // Agent Skills standard: <scope>/skills/goalpulse/SKILL.md. Codex and Antigravity read .agents/skills, Claude Code .claude/skills.
+      const dir = one(flags.agent) === 'claude' ? '.claude' : '.agents';
+      const dest = path.join(flags.global ? require('os').homedir() : process.cwd(), dir, 'skills', 'goalpulse');
+      fs.mkdirSync(dest, { recursive: true });
+      fs.copyFileSync(path.join(__dirname, '..', 'skills', 'goalpulse', 'SKILL.md'), path.join(dest, 'SKILL.md'));
+      console.log(`skill installed: ${dest}`);
+      break;
+    }
+
     case 'init': {
       root = store.initRoot(pos[0] || process.cwd());
       console.log(`initialised ${root}`);
