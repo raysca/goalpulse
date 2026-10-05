@@ -1,0 +1,68 @@
+{"ts":"2026-10-05T13:39:12.794Z","type":"goal","title":"Ship team-based billing","desc":"Per-seat subscriptions for teams, following docs/billing-plan.md. Target: live behind a feature flag by Friday.","plan":"docs/billing-plan.md"}
+{"ts":"2026-10-05T13:39:13.245Z","type":"task","id":"T1","title":"Audit existing billing code","phase":"Discovery","deps":[]}
+{"ts":"2026-10-05T13:39:13.246Z","type":"task","id":"T2","title":"Choose payment provider integration approach","phase":"Discovery","deps":[]}
+{"ts":"2026-10-05T13:39:13.246Z","type":"task","id":"T3","title":"Schema for teams and subscriptions","phase":"Build","deps":["T1"]}
+{"ts":"2026-10-05T13:39:13.246Z","type":"task","id":"T4","title":"Stripe webhook handler","phase":"Build","deps":["T2","T3"]}
+{"ts":"2026-10-05T13:39:13.246Z","type":"task","id":"T5","title":"Checkout session API","phase":"Build","deps":["T3"]}
+{"ts":"2026-10-05T13:39:13.246Z","type":"task","id":"T6","title":"Seat management UI","phase":"Build","deps":["T5"]}
+{"ts":"2026-10-05T13:39:13.246Z","type":"task","id":"T7","title":"Usage metering job","phase":"Build","deps":["T4"]}
+{"ts":"2026-10-05T13:39:13.246Z","type":"task","id":"T8","title":"Integration test suite","phase":"Verify","deps":["T4","T5"]}
+{"ts":"2026-10-05T13:39:13.247Z","type":"task","id":"T9","title":"Security review","phase":"Verify","deps":["T4","T5","T7"]}
+{"ts":"2026-10-05T13:39:13.247Z","type":"task","id":"T10","title":"Docs and migration guide","phase":"Verify","deps":["T6"]}
+{"ts":"2026-10-05T13:39:13.247Z","type":"task","id":"T11","title":"Rollout plan behind feature flag","phase":"Verify","deps":["T8","T9"]}
+{"ts":"2026-10-05T13:39:13.891Z","type":"report","summary":"Plan registered: 11 tasks across Discovery, Build and Verify. Starting with the two discovery tasks in parallel.","health":"on-track","next":["Audit existing billing code (T1)","Choose provider integration approach (T2)"],"risks":[]}
+{"ts":"2026-10-05T13:39:15.142Z","type":"status","id":"T1","status":"active","by":"explorer-1"}
+{"ts":"2026-10-05T13:39:15.491Z","type":"status","id":"T2","status":"active","by":"architect-1"}
+{"ts":"2026-10-05T13:39:17.041Z","type":"assume","id":"A1","text":"Stripe is the payment provider. The plan references Stripe objects but never says it is mandated.","why":"Billing plan section 2 uses Stripe terminology throughout","alt":"Paddle (merchant of record)","confidence":"medium","impact":"high","task":"T2","by":"architect-1"}
+{"ts":"2026-10-05T13:39:18.293Z","type":"note","text":"Legacy billing code lives in app/billing/legacy; 3 callers still import it.","kind":"finding","task":"T1","by":"explorer-1"}
+{"ts":"2026-10-05T13:39:19.843Z","type":"assume","id":"A2","text":"Keep legacy invoices read-only instead of migrating them.","why":"Migrating 40k rows has no stated requirement","alt":"One-off backfill into the new schema","confidence":"high","impact":"low","task":"T1","by":"explorer-1"}
+{"ts":"2026-10-05T13:39:21.092Z","type":"status","id":"T1","status":"done","text":"Mapped 14 files; 3 legacy callers need a compatibility shim","by":"explorer-1"}
+{"ts":"2026-10-05T13:39:26.642Z","type":"status","id":"T2","status":"review","by":"reviewer-1"}
+{"ts":"2026-10-05T13:39:28.190Z","type":"note","text":"Webhook-driven state sync with idempotency keys, not polling.","kind":"decision","task":"T2","by":"architect-1"}
+{"ts":"2026-10-05T13:39:29.441Z","type":"status","id":"T2","status":"done","text":"Approach agreed; ADR written to docs/adr/012-billing-sync.md","by":"architect-1"}
+{"ts":"2026-10-05T13:39:30.086Z","type":"report","summary":"Discovery finished. Provider approach settled on webhook-driven sync; legacy code needs a thin shim. Moving into the build phase.","health":"on-track","next":["Schema for teams and subscriptions (T3)"],"risks":["Plan is silent on proration rules"]}
+{"ts":"2026-10-05T13:39:31.337Z","type":"status","id":"T3","status":"active","by":"backend-1"}
+{"ts":"2026-10-05T13:39:32.890Z","type":"assume","id":"A3","text":"Seat limits are enforced in the application layer, not by a database constraint.","why":"Limits change per plan, so a constraint would need a migration each time","alt":"Check constraint driven by a plans table","confidence":"medium","impact":"medium","task":"T3","by":"backend-1"}
+{"ts":"2026-10-05T13:39:34.139Z","type":"ask","id":"Q1","text":"Should free-trial teams be capped at 5 seats?","task":"T3","options":["Yes, cap at 5","No cap during trial"]}
+{"ts":"2026-10-05T13:39:35.089Z","type":"note","text":"The plan does not say how to prorate mid-cycle seat changes.","kind":"risk","task":"T3","by":"backend-1"}
+{"ts":"2026-10-05T13:39:36.640Z","type":"status","id":"T3","status":"review","by":"reviewer-1"}
+{"ts":"2026-10-05T13:39:38.192Z","type":"status","id":"T3","status":"active","text":"Reviewer asked for an index on subscriptions.team_id","by":"backend-1"}
+{"ts":"2026-10-05T13:39:39.442Z","type":"status","id":"T3","status":"review","by":"reviewer-1"}
+{"ts":"2026-10-05T13:39:40.695Z","type":"status","id":"T3","status":"done","text":"Schema and migration merged, index added","by":"backend-1"}
+{"ts":"2026-10-05T13:39:41.347Z","type":"resume","by":"coordinator-2"}
+{"ts":"2026-10-05T13:39:42.299Z","type":"status","id":"T4","status":"active","by":"backend-1"}
+{"ts":"2026-10-05T13:39:42.649Z","type":"status","id":"T5","status":"active","by":"backend-2"}
+{"ts":"2026-10-05T13:39:44.200Z","type":"assume","id":"A4","text":"Prorate seat changes to the day, matching Stripe default behaviour.","why":"Plan is silent; this needs no custom logic","alt":"Apply changes from the next billing cycle","confidence":"low","impact":"high","task":"T5","by":"backend-2"}
+{"ts":"2026-10-05T13:39:45.751Z","type":"status","id":"T4","status":"blocked","text":"Needs STRIPE_WEBHOOK_SECRET for the test environment; not in the repo or CI secrets","by":"backend-1"}
+{"ts":"2026-10-05T13:39:46.403Z","type":"ask","id":"Q2","text":"Can you add a Stripe test-mode webhook secret to CI?","task":"T4","options":["I will add it","Use the Stripe CLI locally for now"]}
+{"ts":"2026-10-05T13:39:47.954Z","type":"status","id":"T5","status":"review","by":"reviewer-2"}
+{"ts":"2026-10-05T13:39:49.504Z","type":"status","id":"T5","status":"done","text":"Checkout session API with 9 passing tests","by":"backend-2"}
+{"ts":"2026-10-05T13:39:50.455Z","type":"status","id":"T6","status":"active","by":"frontend-1"}
+{"ts":"2026-10-05T13:39:51.702Z","type":"assume","id":"A5","text":"Seat picker caps at 50 seats, then shows \"contact sales\".","why":"Common pattern; keeps large accounts on invoicing","confidence":"medium","impact":"low","task":"T6","by":"frontend-1"}
+{"ts":"2026-10-05T13:39:52.352Z","type":"report","summary":"Checkout API is done and the seat UI is underway. Webhook handler (T4) is blocked on a CI secret, which holds up metering, tests and the security review. Two assumptions about proration and the provider need your eyes.","health":"at-risk","next":["Unblock T4 (needs your answer on Q2)","Finish seat UI (T6)"],"risks":["T7, T8, T9 and T11 are all waiting behind T4","Proration assumption (A4) is low confidence and high impact"]}
+{"ts":"2026-10-05T13:39:53.905Z","type":"answer","id":"Q2","text":"Use the Stripe CLI locally for now; I will add the CI secret Monday"}
+{"ts":"2026-10-05T13:39:54.856Z","type":"status","id":"T4","status":"active","text":"Using a locally generated secret from the Stripe CLI","by":"backend-1"}
+{"ts":"2026-10-05T13:39:56.420Z","type":"answer","id":"Q1","text":"Cap at 5 seats during trial"}
+{"ts":"2026-10-05T13:39:57.384Z","type":"resolve","id":"A1","status":"confirmed","text":"Stripe is correct"}
+{"ts":"2026-10-05T13:39:58.345Z","type":"resolve","id":"A4","status":"revised","text":"Apply seat changes from the next billing cycle instead"}
+{"ts":"2026-10-05T13:39:59.899Z","type":"status","id":"T6","status":"review","by":"reviewer-2"}
+{"ts":"2026-10-05T13:40:01.164Z","type":"status","id":"T6","status":"done","text":"Seat UI shipped with cap and contact-sales state","by":"frontend-1"}
+{"ts":"2026-10-05T13:40:02.414Z","type":"status","id":"T4","status":"review","by":"reviewer-1"}
+{"ts":"2026-10-05T13:40:03.671Z","type":"status","id":"T4","status":"done","text":"Webhook handler with idempotency, retries and signature checks","by":"backend-1"}
+{"ts":"2026-10-05T13:40:04.636Z","type":"status","id":"T7","status":"active","by":"backend-2"}
+{"ts":"2026-10-05T13:40:04.993Z","type":"status","id":"T8","status":"active","by":"qa-1"}
+{"ts":"2026-10-05T13:40:05.356Z","type":"status","id":"T10","status":"active","by":"writer-1"}
+{"ts":"2026-10-05T13:40:06.907Z","type":"status","id":"T8","status":"failed","text":"Proration test fails: day-based proration was removed under A4","by":"qa-1"}
+{"ts":"2026-10-05T13:40:07.863Z","type":"status","id":"T8","status":"todo"}
+{"ts":"2026-10-05T13:40:08.529Z","type":"status","id":"T8","status":"active","text":"Rewriting proration tests for next-cycle behaviour","by":"qa-1"}
+{"ts":"2026-10-05T13:40:10.090Z","type":"status","id":"T7","status":"review","by":"reviewer-1"}
+{"ts":"2026-10-05T13:40:11.353Z","type":"status","id":"T7","status":"done","text":"Hourly metering job with backfill command","by":"backend-2"}
+{"ts":"2026-10-05T13:40:12.315Z","type":"status","id":"T10","status":"done","text":"Migration guide and API docs updated","by":"writer-1"}
+{"ts":"2026-10-05T13:40:13.577Z","type":"status","id":"T8","status":"review","by":"reviewer-2"}
+{"ts":"2026-10-05T13:40:14.835Z","type":"status","id":"T8","status":"done","text":"41 integration tests passing","by":"qa-1"}
+{"ts":"2026-10-05T13:40:15.797Z","type":"status","id":"T9","status":"active","by":"security-1"}
+{"ts":"2026-10-05T13:40:17.353Z","type":"note","text":"Webhook endpoint verifies signatures and rejects replays older than 5 minutes.","kind":"finding","task":"T9","by":"security-1"}
+{"ts":"2026-10-05T13:40:18.620Z","type":"status","id":"T9","status":"done","text":"No critical findings; one low-severity logging fix applied","by":"security-1"}
+{"ts":"2026-10-05T13:40:19.580Z","type":"status","id":"T11","status":"active","by":"coordinator"}
+{"ts":"2026-10-05T13:40:20.836Z","type":"status","id":"T11","status":"done","text":"Staged rollout: 5% of teams, then 25%, then everyone","by":"coordinator"}
+{"ts":"2026-10-05T13:40:21.500Z","type":"report","summary":"All 11 tasks are done. Team billing is complete behind the feature flag, with staged rollout planned. Remaining follow-up for you: add the Stripe test secret to CI.","health":"on-track","next":["Add the CI webhook secret","Flip the flag for 5% of teams"],"risks":[]}

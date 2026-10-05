@@ -1,0 +1,12 @@
+{"ts":"2026-10-05T13:39:11.388Z","type":"goal","title":"Upgrade to Node 22","desc":"Move CI and production images from Node 18 to 22."}
+{"ts":"2026-10-05T13:39:11.638Z","type":"task","id":"N1","title":"Update CI images","deps":[]}
+{"ts":"2026-10-05T13:39:11.639Z","type":"task","id":"N2","title":"Fix deprecated API usage","deps":["N1"]}
+{"ts":"2026-10-05T13:39:11.639Z","type":"task","id":"N3","title":"Roll out to production","deps":["N2"]}
+{"ts":"2026-10-05T13:39:11.781Z","type":"status","id":"N1","status":"active","by":"devops-1"}
+{"ts":"2026-10-05T13:39:11.922Z","type":"status","id":"N1","status":"done","text":"CI matrix now on Node 22","by":"devops-1"}
+{"ts":"2026-10-05T13:39:12.062Z","type":"status","id":"N2","status":"active","by":"backend-1"}
+{"ts":"2026-10-05T13:39:12.203Z","type":"status","id":"N2","status":"done","text":"Replaced 4 deprecated calls","by":"backend-1"}
+{"ts":"2026-10-05T13:39:12.342Z","type":"status","id":"N3","status":"active","by":"devops-1"}
+{"ts":"2026-10-05T13:39:12.482Z","type":"status","id":"N3","status":"done","text":"Rolled out with no errors","by":"devops-1"}
+{"ts":"2026-10-05T13:39:12.623Z","type":"report","summary":"Upgrade finished across CI and production with no regressions.","health":"on-track","next":[],"risks":[]}
+{"ts":"2026-10-05T13:39:12.763Z","type":"archive"}

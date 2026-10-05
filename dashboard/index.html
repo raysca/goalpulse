@@ -537,6 +537,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
   function byRank(a, b) {
     return RANK[a.status] - RANK[b.status] || (a.status === 'todo' ? (b.ready ? 1 : 0) - (a.ready ? 1 : 0) : 0) || new Date(b.updatedAt) - new Date(a.updatedAt);
   }
+  function byRecent(a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); }
   function phaseOf(t) { return t.phase || 'Other'; }
 
   function listView(s, flashIds) {

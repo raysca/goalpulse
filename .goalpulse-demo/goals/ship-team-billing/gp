@@ -1,0 +1,7 @@
+#!/bin/sh
+# goalpulse command bound to the goal "ship-team-billing". Generated; safe to delete (goalpulse resume re-creates it).
+GOALPULSE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+export GOALPULSE_DIR
+export GOALPULSE_GOAL='ship-team-billing'
+if [ -f '/Users/raymondottun/Projects/goalpulse/bin/goalpulse.js' ]; then exec node '/Users/raymondottun/Projects/goalpulse/bin/goalpulse.js' "$@"; fi
+exec goalpulse "$@"
