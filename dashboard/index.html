@@ -74,7 +74,7 @@ h1{font-size:22px;line-height:1.25;font-weight:600;letter-spacing:-.02em}
 .prop .ic{color:var(--c)}
 
 /* sections */
-.sec{margin-top:32px}
+.sec{margin-top:24px}
 .sec-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;min-height:28px}
 h2{font-size:13px;font-weight:600;letter-spacing:-.005em}
 h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
@@ -95,15 +95,31 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
 .cols2 li{margin:2px 0;color:var(--text2)}
 .cols2 .risks li::marker{color:var(--blocked)}
 
-/* status strip */
-.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
-.tile{padding:2px 0 2px 12px;border-left:2px solid var(--line2);min-width:0}
-.tl{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-.tb{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:600;line-height:1.3;margin-top:2px}
-.ts{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tile.hot{border-color:var(--blocked)}.tile.hot .tb{color:var(--blocked)}.tile.calm .tb{color:var(--muted)}
-.tile[class*=" h-"]{border-color:var(--c)}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+/* glance */
+.sum{display:flex;align-items:center;gap:12px;margin-top:20px}
+.sum .stack{flex:1;height:8px;border-radius:4px}
+.hl{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:14px;color:var(--c)}
+.hl i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.pct{font-size:14px;font-weight:600}
+.counts{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12px;color:var(--text2)}
+.counts b{font-weight:600;color:var(--text)}
+.counts .hot,.counts .hot b{color:var(--blocked)}
+.counts .grow{margin-left:auto}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.update{cursor:pointer;padding:12px 16px}.update:hover{background:var(--hover)}
+.summary{font-size:13px;line-height:1.55}
+.dis{display:flex;align-items:center;gap:8px;width:100%;min-height:28px;border-radius:6px}
+.dis:hover h2{color:var(--accent)}
+.dis .chev{color:var(--muted);transition:transform .15s;display:inline-block;width:10px}
+.dis[aria-expanded=true] .chev{transform:rotate(90deg)}
+.dis .muted{font-size:12px}
+.dis+.box{margin-top:8px}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as{cursor:pointer;padding:8px 14px}.as:hover{background:var(--hover)}
+.as .detail{padding:6px 0 4px 44px}
+.grp .mini{width:64px;margin-left:auto}
+.grp{gap:10px}
+.s-done .tr,.s-dropped .tr{opacity:.8}
 /* progress */
 .prog{padding:14px 16px}
 .stack{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--raise);gap:2px}
@@ -226,7 +242,6 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
   .page{padding:20px 16px 64px}
   .bar-top{padding:0 16px}
   .cols2{grid-template-columns:1fr}
-  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tr{grid-template-columns:16px 44px minmax(0,1fr) 48px}
   .tr .chips,.tr .own{display:none}
   .sub-line,.detail{padding-left:70px}
@@ -254,7 +269,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
   var data = INITIAL;            // { goals: [state, ...] }
   var state = null;              // the goal currently on screen
   var conn = LIVE ? 'connecting' : 'snapshot';
-  var ui = { view: 'list', filter: null, expanded: {}, more: {}, showArchived: false, nav: undefined };
+  var ui = { view: 'list', open: {}, expanded: {}, more: {}, showArchived: false, nav: undefined };
   var seen = null;               // task id -> "status|updatedAt", used to flash changes
   var seenGoal = null;
   var QUIET_MIN = 30;            // live only: active/review tasks with no update for this long get a chip
@@ -375,63 +390,46 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
 
   function header(s) {
     var g = s.goal;
-    var done = s.health.value === 'complete';
-    var running = done ? span(s.startedAt, s.updatedAt) : span(s.startedAt, new Date().toISOString());
-    var resumed = s.resumes && s.resumes.length ? ' · resumed ' + s.resumes.length + '×' : '';
     return '<h1>' + esc(g ? g.title : 'No goal set yet') + (s.archived ? ' <span class="chip">archived</span>' : '') + '</h1>' +
-      (g && g.desc ? '<p class="sub">' + esc(g.desc) + '</p>' : '') +
-      '<div class="props">' +
-      (s.updatedAt ? '<span class="prop">' + (done ? 'Took ' : 'Running ') + '<b>' + running + '</b>' + esc(resumed) + '</span><span class="prop">Updated <b>' + esc(agoLong(s.updatedAt)) + '</b></span>' : '') +
-      (g && g.plan ? '<span class="prop">Plan <span class="mono">' + esc(g.plan) + '</span></span>' : '') + '</div>';
+      (g && g.desc ? '<p class="sub">' + esc(g.desc) + '</p>' : '');
   }
 
+  // The glance: one line of status, one bar, one line of counts.
+  function summary(s) {
+    var p = s.progress, c = s.counts, h = s.health.value;
+    var done = h === 'complete';
+    var ready = s.tasks.filter(function (t) { return t.status === 'todo' && t.ready; }).length;
+    var parts = [
+      [(c.active || 0) + (c.review || 0), 'running', ''], [(c.blocked || 0) + (c.failed || 0), 'blocked', 'hot'],
+      [ready, 'ready', ''], [s.attention.length, 'need you', 'hot']
+    ].filter(function (x) { return x[0]; }).map(function (x) { return '<span class="' + x[2] + '"><b>' + x[0] + '</b> ' + x[1] + '</span>'; });
+    var when = s.updatedAt ? (done ? 'took ' + span(s.startedAt, s.updatedAt) : 'updated ' + agoLong(s.updatedAt)) : '';
+    return '<div class="sum"><span class="hl h-' + esc(h) + '"><i></i>' + esc(HEALTH[h] || h) + '</span><b class="pct">' + p.pct + '%</b>' +
+      '<div class="stack" role="img" aria-label="' + p.pct + ' percent complete">' + stack(c, p.total, true) + '</div>' +
+      '<span class="muted">' + p.done + '/' + p.total + '</span></div>' +
+      '<div class="counts">' + parts.join('') + '<span class="muted grow">' + esc(when) + '</span></div>';
+  }
+
+  // Coordinator note: two lines until clicked.
   function reportSection(s) {
     var r = s.report;
-    var body;
-    if (!r) {
-      body = '<div class="update muted">No update yet. The coordinator posts one after each wave of work.</div>';
-    } else {
-      var behind = s.tasks.filter(function (t) { return new Date(t.updatedAt) > new Date(r.ts); }).length;
-      body = '<div class="update"><div class="up-hd h-' + esc(s.health.value) + '"><b>' + esc(HEALTH[s.health.value] || s.health.value) + '</b><span>as of ' + esc(agoLong(r.ts)) + (r.by ? ' by ' + esc(r.by) : '') + '</span>' +
-        (behind ? '<span class="chip warn" title="Tasks changed after this update was written">' + behind + ' task' + (behind > 1 ? 's' : '') + ' changed since</span>' : '') + '</div>' +
-        '<p class="summary">' + esc(r.summary) + '</p>' +
-        ((r.next && r.next.length) || (r.risks && r.risks.length) ? '<div class="cols2">' +
-          '<div>' + (r.next && r.next.length ? '<h3>Next up</h3><ul>' + r.next.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
-          '<div>' + (r.risks && r.risks.length ? '<h3>Risks</h3><ul class="risks">' + r.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div></div>' : '') +
-        '</div>';
-    }
-    return '<section class="sec"><div class="sec-hd"><h2>Coordinator update</h2></div><div class="box">' + body + '</div></section>';
+    if (!r) return '';
+    var open = ui.expanded.report;
+    var behind = s.tasks.filter(function (t) { return new Date(t.updatedAt) > new Date(r.ts); }).length;
+    return '<section class="sec"><div class="box update" role="button" tabindex="0" aria-expanded="' + !!open + '" data-act="toggle" data-v="report">' +
+      '<div class="up-hd">Coordinator · ' + esc(agoLong(r.ts)) +
+      (behind ? '<span class="chip warn" title="Tasks changed after this update was written">' + behind + ' changed since</span>' : '') + '</div>' +
+      '<p class="summary' + (open ? '' : ' clamp') + '">' + esc(r.summary) + '</p>' +
+      (open && ((r.next && r.next.length) || (r.risks && r.risks.length)) ? '<div class="cols2">' +
+        '<div>' + (r.next && r.next.length ? '<h3>Next up</h3><ul>' + r.next.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
+        '<div>' + (r.risks && r.risks.length ? '<h3>Risks</h3><ul class="risks">' + r.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div></div>' : '') +
+      '</div></section>';
   }
 
-  function tile(label, big, sub, cls) {
-    return '<div class="tile ' + (cls || '') + '"><div class="tl">' + label + '</div><div class="tb">' + big + '</div><div class="ts">' + sub + '</div></div>';
-  }
-
-  // The glance: health, what needs the human, what is running, what is next, then the bar.
-  function statusSection(s) {
-    var p = s.progress, c = s.counts, h = s.health.value;
-    var att = s.attention, kinds = {};
-    att.forEach(function (a) { kinds[a.kind] = (kinds[a.kind] || 0) + 1; });
-    var attSub = att.length ? [['question', 'question'], ['blocked', 'blocked'], ['failed', 'failed'], ['assumption', 'to confirm']].filter(function (k) { return kinds[k[0]]; })
-      .map(function (k) { return kinds[k[0]] + ' ' + k[1] + (k[0] === 'question' && kinds[k[0]] > 1 ? 's' : ''); }).join(' · ') : 'Nothing waiting on you';
-    var running = s.tasks.filter(function (t) { return t.status === 'active' || t.status === 'review'; });
-    var who = {};
-    running.forEach(function (t) { var w = t.status === 'review' ? (t.reviewer || t.owner) : t.owner; if (w) who[w] = 1; });
-    var ready = s.tasks.filter(function (t) { return t.status === 'todo' && t.ready; });
-    var legend = ['done', 'review', 'active', 'blocked', 'failed', 'todo'].filter(function (k) { return c[k]; }).map(function (k) {
-      return '<span>' + icon(k, 12) + ST[k].label + ' <b>' + c[k] + '</b></span>';
-    }).join('');
-    var phases = s.phases && s.phases.length > 1 ? '<div class="phases">' + s.phases.map(function (ph) {
-      return '<div class="phase"><span>' + esc(ph.name) + '</span><div class="mini"><span style="width:' + (ph.total ? 100 * ph.done / ph.total : 0) + '%"></span></div>' +
-        '<span class="muted">' + ph.done + '/' + ph.total + '</span></div>';
-    }).join('') + '</div>' : '';
-    return '<section class="sec"><div class="box prog"><div class="tiles">' +
-      tile('Status', '<span class="dot h-' + esc(h) + '"></span>' + esc(HEALTH[h] || h), p.pct + '% · ' + p.done + ' of ' + p.total + ' tasks', 'h-' + esc(h)) +
-      tile('Needs you', att.length, esc(attSub), att.length ? 'hot' : 'calm') +
-      tile('Working now', running.length, running.length ? esc(Object.keys(who).slice(0, 3).join(', ')) : 'Nothing in flight') +
-      tile('Ready next', ready.length, ready.length ? esc(ready.slice(0, 3).map(function (t) { return t.id; }).join(', ')) : 'Nothing queued') +
-      '</div><div class="stack" role="img" aria-label="' + p.pct + ' percent complete">' + stack(c, p.total, true) + '</div>' +
-      '<div class="legend">' + (legend || '<span>No tasks yet</span>') + '</div>' + phases + '</div></section>';
+  // A collapsed section is one line: chevron, title, a hint of what is inside.
+  function disc(key, title, meta, body, open) {
+    return '<section class="sec"><button class="dis" data-act="sect" data-v="' + key + '" aria-expanded="' + open + '"><span class="chev">›</span><h2>' + title + '</h2><span class="muted">' + meta + '</span></button>' +
+      (open ? body : '') + '</section>';
   }
 
   function attention(s) {
@@ -457,7 +455,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     if (t.waitingOn && t.waitingOn.length) meta += '<span class="chip">waits on ' + esc(t.waitingOn.join(', ')) + '</span>';
     var risky = s.assumptions.filter(function (a) { return a.task === t.id && a.status === 'open'; });
     if (risky.length) meta += '<span class="chip ' + (risky.some(function (a) { return a.confidence === 'low' || a.impact === 'high'; }) ? 'warn' : '') + '">' + risky.length + ' assumption' + (risky.length > 1 ? 's' : '') + '</span>';
-    if (t.phase) meta += '<span class="chip">' + esc(t.phase) + '</span>';
+    if (t.phase && !(s.phases && s.phases.length > 1)) meta += '<span class="chip">' + esc(t.phase) + '</span>';
     return meta;
   }
 
@@ -474,7 +472,6 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
   }
 
   function taskNote(t) {
-    if (t.status === 'done') return t.result || '';
     if (t.status === 'blocked' || t.status === 'failed') return t.blocker || '';
     return '';
   }
@@ -489,23 +486,27 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
       (note && !open ? '<div class="sub-line">' + esc(note) + '</div>' : '') + (open ? taskDetail(t, s) : '') + '</div>';
   }
 
-  var GROUPS = [
-    { key: 'blocked', label: 'Blocked' }, { key: 'failed', label: 'Failed' },
-    { key: 'active', label: 'In progress' }, { key: 'review', label: 'In review' }, { key: 'todo', label: 'To do' }, { key: 'done', label: 'Done' }, { key: 'dropped', label: 'Dropped' }
-  ];
-  function byRecent(a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); }
+  var RANK = { blocked: 0, failed: 1, active: 2, review: 3, todo: 4, done: 5, dropped: 6 };
+  function byRank(a, b) {
+    return RANK[a.status] - RANK[b.status] || (a.status === 'todo' ? (b.ready ? 1 : 0) - (a.ready ? 1 : 0) : 0) || new Date(b.updatedAt) - new Date(a.updatedAt);
+  }
+  function phaseOf(t) { return t.phase || 'Other'; }
 
   function listView(s, flashIds) {
+    var names = (s.phases || []).map(function (p) { return p.name; });
+    s.tasks.forEach(function (t) { if (names.indexOf(phaseOf(t)) < 0) names.push(phaseOf(t)); });
+    var single = names.length < 2;
     var out = '';
-    GROUPS.forEach(function (g) {
-      var list = s.tasks.filter(function (t) { return t.status === g.key; });
+    names.forEach(function (name) {
+      var list = s.tasks.filter(function (t) { return phaseOf(t) === name; }).sort(byRank);
       if (!list.length) return;
-      list.sort(g.key === 'todo' ? function (a, b) { return (b.ready ? 1 : 0) - (a.ready ? 1 : 0); } : byRecent);
-      var collapsed = (g.key === 'done' || g.key === 'dropped') && !ui.more[g.key];
-      var shown = collapsed ? [] : list;
-      out += '<div class="grp s-' + g.key + '">' + icon(g.key) + '<b>' + g.label + '</b><span class="n">' + list.length + '</span></div>' +
-        shown.map(function (t) { return taskRow(t, s, flashIds); }).join('') +
-        (list.length > shown.length ? '<button class="more" data-act="more" data-v="' + g.key + '">Show ' + list.length + ' ' + g.label.toLowerCase() + '</button>' : '');
+      var closed = list.filter(function (t) { return t.status === 'done' || t.status === 'dropped'; });
+      var live = list.filter(function (t) { return closed.indexOf(t) < 0; });
+      var open = ui.more['p:' + name];
+      var d = list.filter(function (t) { return t.status === 'done'; }).length;
+      if (!single) out += '<div class="grp"><b>' + esc(name) + '</b><span class="mini"><span style="width:' + (100 * d / list.length) + '%"></span></span><span class="n">' + d + '/' + list.length + '</span></div>';
+      out += (open ? list : live).map(function (t) { return taskRow(t, s, flashIds); }).join('') +
+        (closed.length ? '<button class="more" data-act="more" data-v="p:' + esc(name) + '">' + (open ? 'Hide' : 'Show') + ' ' + closed.length + ' done</button>' : '');
     });
     return '<div class="box" style="overflow:hidden">' + out + '</div>';
   }
@@ -544,49 +545,42 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
 
   function assumptionsSection(s) {
     if (!s.assumptions.length) return '';
-    var counts = {
-      review: s.assumptions.filter(needsReview).length,
-      open: s.assumptions.filter(function (a) { return a.status === 'open'; }).length,
-      all: s.assumptions.length,
-      resolved: s.assumptions.filter(function (a) { return a.status !== 'open'; }).length
-    };
-    var f = ui.filter || (counts.review ? 'review' : 'all');
-    var pass = { review: needsReview, open: function (a) { return a.status === 'open'; }, all: function () { return true; }, resolved: function (a) { return a.status !== 'open'; } }[f];
+    var review = s.assumptions.filter(needsReview).length;
+    var open = 'assume' in ui.open ? ui.open.assume : review > 0;
     var rank = { high: 0, medium: 1, low: 2 };
-    var list = s.assumptions.filter(pass).sort(function (a, b) {
+    var list = s.assumptions.slice().sort(function (a, b) {
       if ((a.status === 'open') !== (b.status === 'open')) return a.status === 'open' ? -1 : 1;
       return (needsReview(b) ? 1 : 0) - (needsReview(a) ? 1 : 0) || rank[a.impact] - rank[b.impact];
     });
-    var tabs = [['review', 'Needs review'], ['open', 'Open'], ['all', 'All'], ['resolved', 'Resolved']].map(function (t) {
-      return '<button data-act="filter" data-v="' + t[0] + '" aria-pressed="' + (f === t[0]) + '">' + t[1] + '<span class="n">' + counts[t[0]] + '</span></button>';
-    }).join('');
     var rows = list.map(function (a) {
-      var closed = a.status !== 'open';
-      return '<article class="as' + (needsReview(a) ? ' risky' : '') + (closed ? ' closed' : '') + '" id="assume-' + esc(a.id) + '">' +
-        '<div class="as-top"><span class="id mono">' + esc(a.id) + '</span><h4>' + esc(a.text) + '</h4><span class="chips">' +
+      var closed = a.status !== 'open', ex = ui.expanded['assume:' + a.id];
+      return '<article class="as' + (needsReview(a) ? ' risky' : '') + (closed ? ' closed' : '') + '" id="assume-' + esc(a.id) + '" role="button" tabindex="0" aria-expanded="' + !!ex + '" data-act="toggle" data-v="assume:' + esc(a.id) + '">' +
+        '<div class="as-top"><span class="id mono">' + esc(a.id) + '</span><h4' + (ex ? '' : ' class="ell"') + '>' + esc(a.text) + '</h4><span class="chips">' +
         (closed ? '<span class="chip rs-' + esc(a.status) + '">' + cap(esc(a.status)) + '</span>' : '') +
-        '<span class="chip ' + (a.confidence === 'low' ? 'lvl-low' : a.confidence === 'high' ? 'lvl-good' : '') + '">confidence ' + esc(a.confidence) + '</span>' +
-        '<span class="chip ' + (a.impact === 'high' ? 'lvl-high-impact' : '') + '">impact ' + esc(a.impact) + '</span>' +
+        (!closed && a.confidence === 'low' ? '<span class="chip lvl-low">low confidence</span>' : '') +
+        (!closed && a.impact === 'high' ? '<span class="chip lvl-high-impact">high impact</span>' : '') +
         (a.task ? '<button class="link mono" data-act="jump" data-v="task:' + esc(a.task) + '">' + esc(a.task) + '</button>' : '') + '</span></div>' +
-        (a.why ? '<p class="why"><b>Why</b> ' + esc(a.why) + '</p>' : '') +
-        (a.alt ? '<p class="why"><b>Alternative</b> ' + esc(a.alt) + '</p>' : '') +
-        (a.note ? '<p class="why"><b>Resolution</b> ' + esc(a.note) + (a.by ? ' · ' + esc(a.by) : '') + '</p>' : (a.by ? '<p class="why">' + esc(a.by) + '</p>' : '')) + '</article>';
+        (ex ? '<div class="detail">' +
+          '<div><span class="muted">Confidence</span> ' + esc(a.confidence) + ' · <span class="muted">Impact</span> ' + esc(a.impact) + (a.by ? ' · ' + esc(a.by) : '') + '</div>' +
+          (a.why ? '<div><span class="muted">Why</span> ' + esc(a.why) + '</div>' : '') +
+          (a.alt ? '<div><span class="muted">Alternative</span> ' + esc(a.alt) + '</div>' : '') +
+          (a.note ? '<div><span class="muted">Resolution</span> ' + esc(a.note) + '</div>' : '') + '</div>' : '') + '</article>';
     }).join('');
-    return '<section class="sec"><div class="sec-hd"><h2>Assumptions and best guesses</h2><div class="tabs" role="group" aria-label="Filter">' + tabs + '</div></div>' +
-      '<div class="box">' + (rows || '<div class="empty">Nothing in this filter.</div>') + '</div></section>';
+    var meta = s.assumptions.length + (review ? ' · ' + review + ' need review' : '');
+    return disc('assume', 'Assumptions', meta, '<div class="box">' + rows + '</div>', open);
   }
 
   function activitySection(s) {
     if (!s.activity.length) return '';
     var all = s.activity.slice().reverse();
     var shown = ui.more.activity ? all.slice(0, 120) : all.slice(0, 12);
-    return '<section class="sec"><div class="sec-hd"><h2>Activity</h2></div><div class="box" style="overflow:hidden">' +
+    var body = '<div class="box" style="overflow:hidden">' +
       shown.map(function (e) {
         var g = ST[e.kind] ? icon(e.kind, 12) : '<span class="g">' + (KIND_GLYPH[e.kind] || '•') + '</span>';
         return '<div class="ev k-' + esc(e.kind) + '">' + g + '<div class="t2">' + esc(e.text) + (e.by ? ' <span class="by">· ' + esc(e.by) + '</span>' : '') + '</div><span class="muted">' + esc(ago(e.ts)) + '</span></div>';
       }).join('') +
-      (all.length > shown.length ? '<button class="more" data-act="more" data-v="activity">Show more (' + (Math.min(all.length, 120) - shown.length) + ')</button>' : '') +
-      '</div></section>';
+      (all.length > shown.length ? '<button class="more" data-act="more" data-v="activity">Show more (' + (Math.min(all.length, 120) - shown.length) + ')</button>' : '') + '</div>';
+    return disc('activity', 'Activity', all.length + ' events', body, !!ui.open.activity);
   }
 
   function onboarding() {
@@ -688,7 +682,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
   function renderGoal(app, goals, multi) {
     if (seenGoal !== state.slug) { // switching goals: drop per-goal UI state and change tracking
       seen = null; seenGoal = state.slug;
-      ui.expanded = {}; ui.more = {}; ui.filter = null;
+      ui.expanded = {}; ui.more = {}; ui.open = {};
     }
     // Which tasks changed since the last render (not on first paint).
     var flashIds = {};
@@ -697,8 +691,8 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     seen = now;
 
     var empty = !state.goal && !state.tasks.length;
-    var inner = header(state) + (empty ? '<section class="sec">' + onboarding() + '</section>' :
-      statusSection(state) + attention(state) + reportSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
+    var inner = header(state) + (empty ? '' : summary(state)) + (empty ? '<section class="sec">' + onboarding() + '</section>' :
+      attention(state) + reportSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
       '<div class="foot">' + state.rev + ' events' + (conn === 'snapshot' ? '. Static snapshot: run <span class="mono">goalpulse dashboard</span> for live updates.' : '') + '</div>');
     app.innerHTML = shell(goals, state, state.goal ? state.goal.title : state.slug, inner, multi);
     document.title = (state.attention.length ? '(' + state.attention.length + ') ' : '') + (state.progress.total ? state.progress.pct + '% · ' : '') + (state.goal ? state.goal.title : 'Goal progress');
@@ -706,8 +700,11 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
 
   function jump(target) {
     var parts = target.split(':');
-    if (parts[0] === 'assume') ui.filter = 'all';
-    if (parts[0] === 'task') { ui.expanded['task:' + parts[1]] = true; ui.more.done = true; ui.more.dropped = true; }
+    if (parts[0] === 'assume') { ui.open.assume = true; ui.expanded[target] = true; }
+    if (parts[0] === 'task') {
+      ui.expanded[target] = true;
+      state.tasks.forEach(function (t) { if (t.id === parts[1]) ui.more['p:' + phaseOf(t)] = true; });
+    }
     render();
     var el = document.getElementById((parts[0] === 'assume' ? 'assume-' : 'task-') + parts[1]);
     if (el) {
@@ -721,7 +718,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     if (!el) return;
     var act = el.getAttribute('data-act'), v = el.getAttribute('data-v');
     if (act === 'view') { ui.view = v; try { localStorage.setItem('gp.view', v); } catch (x) {} render(); }
-    else if (act === 'filter') { ui.filter = v; render(); }
+    else if (act === 'sect') { ui.open[v] = !(v in ui.open ? ui.open[v] : v === 'assume' && state.assumptions.some(needsReview)); render(); }
     else if (act === 'toggle') { if (e.target.closest('.detail')) return; ui.expanded[v] = !ui.expanded[v]; render(); }
     else if (act === 'more') { ui.more[v] = true; render(); }
     else if (act === 'jump') { e.stopPropagation(); jump(v); }
