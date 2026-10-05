@@ -104,6 +104,7 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
 .counts{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12px;color:var(--text2)}
 .counts b{font-weight:600;color:var(--text)}
 .counts .hot,.counts .hot b{color:var(--blocked)}
+.counts .bad,.counts .bad b{color:var(--failed)}
 .counts .grow{margin-left:auto}
 .clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .update{cursor:pointer;padding:12px 16px}.update:hover{background:var(--hover)}
@@ -146,6 +147,14 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
 .a-q{--c:var(--review)}.a-blocked{--c:var(--blocked)}.a-failed{--c:var(--failed)}.a-assumption{--c:var(--active)}
 .attn{border-color:color-mix(in srgb,var(--blocked) 35%,var(--line))}
 
+/* questions */
+.qrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:9px 14px;border-top:1px solid var(--line)}
+.qrow:first-child{border-top:0}
+.qrow[role=button]{cursor:pointer}.qrow[role=button]:hover{background:var(--hover)}
+.qrow .mono{color:var(--review)}
+.qrow.done .mono{color:var(--muted)}.qrow.done .qt>div:first-child{color:var(--text2)}
+.qt .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.qrow>.muted{font-size:12px;white-space:nowrap}
 /* chips */
 .chip{display:inline-flex;align-items:center;gap:5px;height:18px;padding:0 6px;border:1px solid var(--line);border-radius:5px;font-size:11px;color:var(--muted);white-space:nowrap}
 .chip.ready{color:var(--review);border-color:color-mix(in srgb,var(--review) 35%,var(--line))}
@@ -400,7 +409,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     var done = h === 'complete';
     var ready = s.tasks.filter(function (t) { return t.status === 'todo' && t.ready; }).length;
     var parts = [
-      [(c.active || 0) + (c.review || 0), 'running', ''], [(c.blocked || 0) + (c.failed || 0), 'blocked', 'hot'],
+      [(c.active || 0) + (c.review || 0), 'running', ''], [c.blocked || 0, 'blocked', 'hot'], [c.failed || 0, 'failed', 'bad'],
       [ready, 'ready', ''], [s.attention.length, 'need you', 'hot']
     ].filter(function (x) { return x[0]; }).map(function (x) { return '<span class="' + x[2] + '"><b>' + x[0] + '</b> ' + x[1] + '</span>'; });
     var when = s.updatedAt ? (done ? 'took ' + span(s.startedAt, s.updatedAt) : 'updated ' + agoLong(s.updatedAt)) : '';
@@ -432,17 +441,46 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
       (open ? body : '') + '</section>';
   }
 
+  var CAP = 5;
+
+  function questionsSection(s) {
+    var open = s.asks.filter(function (q) { return q.status === 'open'; });
+    var answered = s.asks.filter(function (q) { return q.status !== 'open'; });
+    var out = '';
+    if (open.length) {
+      var shown = ui.more.q ? open : open.slice(0, CAP);
+      out += '<section class="sec"><div class="sec-hd"><h2>Questions<span class="n">' + open.length + '</span></h2></div><div class="box attn">' +
+        shown.map(function (q) {
+          var opts = (q.options || []).map(function (o) { return '<span class="chip">' + esc(o) + '</span>'; }).join('');
+          return '<div class="qrow"' + (q.task ? ' role="button" tabindex="0" data-act="jump" data-v="task:' + esc(q.task) + '"' : '') + '><span class="mono">' + esc(q.id) + '</span>' +
+            '<div class="qt"><div>' + esc(q.text) + '</div>' + (opts ? '<div class="chips">' + opts + '</div>' : '') + '</div>' +
+            '<span class="muted">' + (q.task ? esc(q.task) + ' · ' : '') + esc(ago(q.ts)) + '</span></div>';
+        }).join('') +
+        (open.length > shown.length ? '<button class="more" data-act="more" data-v="q">Show ' + (open.length - shown.length) + ' more</button>' : '') + '</div></section>';
+    }
+    if (answered.length) {
+      out += disc('answered', 'Answered', answered.length, '<div class="box">' + answered.map(function (q) {
+        return '<div class="qrow done"><span class="mono">' + esc(q.id) + '</span><div class="qt"><div>' + esc(q.text) + '</div><div class="muted">→ ' + esc(q.answer || 'answered') + '</div></div><span class="muted">' + esc(ago(q.answeredAt)) + '</span></div>';
+      }).join('') + '</div>', !!ui.open.answered);
+    }
+    return out;
+  }
+
+  // Blocked or failed work and risky assumptions waiting on the human (questions have their own section).
   function attention(s) {
-    if (!s.attention.length) return '';
-    var items = s.attention.map(function (a) {
-      var cls = a.kind === 'question' ? 'a-q' : 'a-' + a.kind;
-      var k = { question: 'Question', blocked: 'Blocked', failed: 'Failed', assumption: 'Confirm assumption' }[a.kind];
+    var list = s.attention.filter(function (a) { return a.kind !== 'question'; });
+    if (!list.length) return '';
+    var shown = ui.more.attn ? list : list.slice(0, CAP);
+    var items = shown.map(function (a) {
+      var cls = 'a-' + a.kind;
+      var k = { blocked: 'Blocked', failed: 'Failed', assumption: 'Confirm assumption' }[a.kind];
       var target = a.kind === 'assumption' ? 'assume:' + a.id : a.task ? 'task:' + a.task : '';
       var chips = a.kind === 'assumption' ? '<span class="chips"><span class="chip ' + (a.confidence === 'low' ? 'lvl-low' : '') + '">confidence ' + esc(a.confidence) + '</span><span class="chip ' + (a.impact === 'high' ? 'lvl-high-impact' : '') + '">impact ' + esc(a.impact) + '</span></span>' : '<span></span>';
       return '<button class="arow ' + cls + '" data-act="jump" data-v="' + esc(target) + '"><span class="k"><i></i>' + k + '</span>' +
         '<span class="tx"><span class="mono">' + esc(a.id) + '</span>' + esc(a.title ? a.title + ': ' : '') + esc(a.text) + '</span>' + chips + '</button>';
     }).join('');
-    return '<section class="sec"><div class="sec-hd"><h2>Needs your attention<span class="n">' + s.attention.length + '</span></h2></div><div class="box attn">' + items + '</div></section>';
+    return '<section class="sec"><div class="sec-hd"><h2>Needs attention<span class="n">' + list.length + '</span></h2></div><div class="box attn">' + items +
+      (list.length > shown.length ? '<button class="more" data-act="more" data-v="attn">Show ' + (list.length - shown.length) + ' more</button>' : '') + '</div></section>';
   }
 
   function taskChips(t, s) {
@@ -451,6 +489,12 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     if (LIVE && (t.status === 'active' || t.status === 'review')) {
       var quiet = (Date.now() - new Date(t.updatedAt).getTime()) / 60000;
       if (quiet > QUIET_MIN) meta += '<span class="chip warn" title="No update for a while; the agent may have stopped">quiet ' + (quiet < 120 ? Math.round(quiet) + 'm' : Math.round(quiet / 60) + 'h') + '</span>';
+    }
+    var qs = s.asks.filter(function (q) { return q.task === t.id && q.status === 'open'; });
+    if (qs.length) meta += '<span class="chip warn">asks ' + esc(qs.map(function (q) { return q.id; }).join(', ')) + '</span>';
+    if (t.status !== 'done' && t.status !== 'dropped') {
+      var downstream = s.tasks.filter(function (x) { return x.status === 'todo' && x.deps && x.deps.indexOf(t.id) >= 0; }).length;
+      if (downstream) meta += '<span class="chip">unblocks ' + downstream + '</span>';
     }
     if (t.waitingOn && t.waitingOn.length) meta += '<span class="chip">waits on ' + esc(t.waitingOn.join(', ')) + '</span>';
     var risky = s.assumptions.filter(function (a) { return a.task === t.id && a.status === 'open'; });
@@ -463,7 +507,10 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     var linked = s.assumptions.filter(function (a) { return a.task === t.id; });
     return '<div class="detail">' +
       (t.desc ? '<div>' + esc(t.desc) + '</div>' : '') +
-      (t.deps && t.deps.length ? '<div><span class="muted">Depends on</span> ' + esc(t.deps.join(', ')) + '</div>' : '') +
+      (t.deps && t.deps.length ? '<div><span class="muted">Depends on</span> ' + t.deps.map(function (d) {
+        var x = s.tasks.filter(function (y) { return y.id === d; })[0];
+        return '<button class="link" data-act="jump" data-v="task:' + esc(d) + '">' + esc(d) + '</button>' + (x ? ' (' + esc(ST[x.status].label.toLowerCase()) + ')' : '');
+      }).join(', ') + '</div>' : '') +
       (t.status !== 'done' && t.result ? '<div>' + esc(t.result) + '</div>' : '') +
       (linked.length ? '<div>' + linked.map(function (a) { return '<button class="link" data-act="jump" data-v="assume:' + esc(a.id) + '">' + esc(a.id) + '</button> ' + esc(a.text); }).join('<br>') + '</div>' : '') +
       '<div class="hist">' + t.history.slice(-6).map(function (h) {
@@ -692,7 +739,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
 
     var empty = !state.goal && !state.tasks.length;
     var inner = header(state) + (empty ? '' : summary(state)) + (empty ? '<section class="sec">' + onboarding() + '</section>' :
-      attention(state) + reportSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
+      questionsSection(state) + attention(state) + reportSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
       '<div class="foot">' + state.rev + ' events' + (conn === 'snapshot' ? '. Static snapshot: run <span class="mono">goalpulse dashboard</span> for live updates.' : '') + '</div>');
     app.innerHTML = shell(goals, state, state.goal ? state.goal.title : state.slug, inner, multi);
     document.title = (state.attention.length ? '(' + state.attention.length + ') ' : '') + (state.progress.total ? state.progress.pct + '% · ' : '') + (state.goal ? state.goal.title : 'Goal progress');
