@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0f1012; }
+      :root {
+        --bg: #0f1012; --panel: #141518; --raise: #1a1b1f; --line: #232529; --line2: #2c2e34;
+        --text: #eef0f2; --text2: #b8bcc3; --muted: #7b8089; --accent: #8590f5;
+        --todo: #7b8089; --active: #f0b940; --review: #4cc38a; --done: #7b86f0; --blocked: #f09050; --failed: #f06a6a;
+      }
+      #root { position: relative; width: 100%; height: 100%; background: var(--bg); color: var(--text);
+        font-family: system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+      .scene { position: absolute; inset: 0; }
+      .fill { position: absolute; inset: 0; }
+      .mono { font-family: monospace; }
+
+      /* A: the wall of text */
+      #wall { position: absolute; left: 140px; top: 60px; width: 1700px; color: #8f939b; font-family: monospace; font-size: 22px; line-height: 34px; white-space: nowrap; }
+      
+      #shade { background: radial-gradient(ellipse at center, rgba(15,16,18,.93) 0%, rgba(15,16,18,.78) 55%, rgba(15,16,18,.7) 100%); }
+      #fname { position: absolute; left: 140px; top: 60px; padding: 8px 16px; border: 1px solid var(--line2); border-radius: 8px; background: var(--panel); color: var(--text2); font-family: monospace; font-size: 24px; }
+      .cap { position: absolute; left: 0; right: 0; text-align: center; font-size: 96px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
+      #cap1 { top: 400px; }
+      #cap2 { top: 540px; color: var(--blocked); }
+
+      /* B: title */
+      #brand { position: absolute; left: 0; right: 0; top: 400px; text-align: center; }
+      #brand .logo { display: inline-block; width: 84px; height: 84px; border-radius: 24px; background: var(--accent); position: relative; vertical-align: middle; margin-right: 28px; }
+      #brand .logo::after { content: ""; position: absolute; left: 30px; top: 30px; width: 24px; height: 24px; border-radius: 50%; background: #fff; }
+      #brand .name { font-size: 132px; font-weight: 700; letter-spacing: -0.04em; vertical-align: middle; }
+      #tag { position: absolute; left: 0; right: 0; top: 590px; text-align: center; font-size: 56px; color: var(--accent); font-weight: 600; letter-spacing: 0.02em; }
+
+      /* C: the dashboard */
+      #dash { position: absolute; left: 110px; top: 70px; width: 1700px; height: 940px; display: grid; grid-template-columns: 620px 1fr; gap: 40px; }
+      .card { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
+      #left { display: flex; flex-direction: column; gap: 28px; }
+      #gtitle { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+      .sum { display: flex; align-items: center; gap: 18px; margin-top: 8px; }
+      .hl { display: inline-flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 700; }
+      .hl i { display: block; width: 18px; height: 18px; border-radius: 50%; background: currentColor; }
+      .pct { font-size: 30px; font-weight: 700; }
+      .bar { position: relative; flex: 1; height: 16px; border-radius: 8px; background: var(--raise); overflow: hidden; }
+      .bar span { position: absolute; top: 0; bottom: 0; }
+      #b-done { background: var(--done); left: 0; }
+      #b-active { background: var(--active); }
+      #b-blocked { background: var(--blocked); }
+      .frac { font-size: 24px; color: var(--muted); }
+      #counts { display: flex; flex-wrap: wrap; gap: 6px 28px; margin-top: 16px; font-size: 26px; color: var(--text2); }
+      #counts b { color: var(--text); }
+      #counts .hot, #counts .hot b { color: var(--blocked); }
+      #qbox { padding: 24px 28px; border-color: rgba(240,144,80,.45); min-height: 330px; }
+      #qbox h3 { font-size: 24px; font-weight: 700; margin-bottom: 14px; }
+      #qbox h3 span { color: var(--muted); font-weight: 500; margin-left: 10px; }
+      .q { padding: 14px 0; border-top: 1px solid var(--line); }
+      .q:first-of-type { border-top: 0; }
+      .q .qt { font-size: 28px; line-height: 1.3; }
+      .q .qid { color: var(--review); font-family: monospace; font-size: 22px; margin-right: 12px; }
+      .opts { display: block; margin-top: 10px; }
+      .opt { display: inline-block; margin: 0 8px 0 0; padding: 4px 12px; border: 1px solid var(--line2); border-radius: 8px; font-size: 20px; color: var(--muted); }
+      .ans { display: block; margin-top: 10px; font-size: 22px; color: var(--review); }
+      .none { font-size: 26px; color: var(--muted); padding: 40px 0; text-align: center; }
+
+      #right { padding: 8px 0; overflow: hidden; }
+      .ph { display: flex; align-items: center; gap: 16px; padding: 0 32px; height: 56px; background: var(--raise); font-size: 24px; font-weight: 700; }
+      .ph .n { margin-left: auto; color: var(--muted); font-weight: 500; }
+      .row { display: flex; align-items: center; gap: 22px; height: 64px; padding: 0 32px; border-top: 1px solid var(--line); }
+      .ic { position: relative; flex: none; display: block; width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--c, var(--todo)); }
+      .s-todo { --c: var(--todo); } .s-todo .ic { border-style: dashed; }
+      .s-active { --c: var(--active); } .s-active .ic { background: conic-gradient(var(--c) 0 50%, transparent 0); }
+      .s-review { --c: var(--review); } .s-review .ic { background: conic-gradient(var(--c) 0 75%, transparent 0); }
+      .s-done { --c: var(--done); } .s-done .ic { background: var(--c); }
+      .s-done .ic::after { content: ""; position: absolute; left: 8px; top: 3px; width: 8px; height: 15px; border: solid #0f1012; border-width: 0 4px 4px 0; transform: rotate(45deg); }
+      .s-blocked { --c: var(--blocked); } .s-blocked .ic::after { content: ""; position: absolute; left: 5px; top: 10px; width: 14px; height: 4px; border-radius: 2px; background: var(--c); }
+      .s-failed { --c: var(--failed); } .s-failed .ic { background: var(--c); }
+      .tid { width: 64px; color: var(--muted); font-family: monospace; font-size: 24px; }
+      .ttl { flex: 1; font-size: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .s-done .ttl { color: var(--text2); }
+      .who { font-size: 22px; color: var(--muted); }
+      .tag { font-size: 20px; padding: 4px 12px; border: 1px solid var(--line2); border-radius: 8px; color: var(--muted); }
+      .s-blocked .tag { color: var(--blocked); border-color: rgba(240,144,80,.5); }
+
+      /* P: the prompt */
+      #plabel { position: absolute; left: 310px; top: 300px; font-size: 28px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+      #pbox { position: absolute; left: 310px; top: 350px; width: 1300px; min-height: 320px; padding: 44px 48px 44px; border: 2px solid var(--line2); border-radius: 28px; background: var(--panel); }
+      #ptext { width: 1080px; font-size: 44px; line-height: 1.4; color: var(--text); }
+      #ptext mark { background: rgba(133,144,245,.28); color: var(--text); border-radius: 8px; padding: 0 8px; }
+      #ptext .caret { display: inline-block; width: 4px; height: 44px; margin-left: 4px; vertical-align: -6px; background: var(--accent); }
+      #psend { position: absolute; right: 36px; bottom: 36px; width: 72px; height: 72px; border-radius: 50%; background: var(--muted); display: flex; align-items: center; justify-content: center; }
+      #pnote { position: absolute; left: 0; right: 0; top: 760px; text-align: center; font-size: 44px; color: var(--accent); font-weight: 600; }
+
+      /* D: call to action */
+      #cta1 { position: absolute; left: 80px; right: 80px; top: 250px; text-align: center; font-size: 84px; font-weight: 700; letter-spacing: -0.03em; }
+      #cta2 { position: absolute; left: 160px; right: 160px; top: 400px; text-align: center; font-size: 40px; line-height: 1.3; color: var(--text2); }
+      .code { position: absolute; left: 360px; width: 1200px; padding: 24px 36px; border: 1px solid var(--line2); border-radius: 16px; background: var(--panel); font-family: monospace; font-size: 36px; color: var(--text); }
+      .code span { color: var(--muted); }
+      #code1 { top: 540px; } #code2 { top: 650px; }
+      #repo { position: absolute; left: 0; right: 0; top: 830px; text-align: center; font-size: 44px; color: var(--accent); font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="29" data-width="1920" data-height="1080">
+      <!-- A: the problem -->
+      <div id="sceneA" class="scene clip" data-start="0" data-duration="5" data-track-index="1">
+        <div id="aIn" class="fill">
+          <div id="wall" data-layout-allow-overlap data-layout-allow-occlusion data-layout-allow-overflow></div>
+          <div id="shade" class="fill" data-layout-allow-overlap data-layout-allow-occlusion></div>
+          <div id="fname">progress.md</div>
+          <div id="cap1" class="cap" data-layout-allow-overlap>Agent is working…</div>
+          <div id="cap2" class="cap" data-layout-allow-overlap>Streams of unreadable text</div>
+        </div>
+      </div>
+
+      <!-- B: the name -->
+      <div id="sceneB" class="scene clip" data-start="4.8" data-duration="2.4" data-track-index="2">
+        <div id="bIn" class="fill">
+          <div id="brand"><span class="logo"></span><span class="name">GoalPulse</span></div>
+          <div id="tag">Agent Visual Feedback</div>
+        </div>
+      </div>
+
+      <!-- P: how you use it -->
+      <div id="sceneP" class="scene clip" data-start="6.9" data-duration="4.3" data-track-index="2">
+        <div id="pIn" class="fill">
+          <div id="plabel">Your prompt</div>
+          <div id="pbox">
+            <div id="ptext"></div>
+            <div id="psend"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0f1012" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+          </div>
+          <div id="pnote">One sentence. That's the setup.</div>
+        </div>
+      </div>
+
+      <!-- C: the dashboard, driven by real demo events -->
+      <div id="sceneC" class="scene clip" data-start="11" data-duration="13.2" data-track-index="3">
+        <div id="cIn" class="fill">
+          <div id="dash">
+            <div id="left">
+              <div>
+                <div id="gtitle"></div>
+                <div class="sum">
+                  <span class="hl" id="health"><i></i><span id="healthTxt"></span></span>
+                  <span class="pct" id="pct"></span>
+                  <div class="bar"><span id="b-done"></span><span id="b-active"></span><span id="b-blocked"></span></div>
+                  <span class="frac" id="frac"></span>
+                </div>
+                <div id="counts"></div>
+              </div>
+              <div id="qbox" class="card"></div>
+            </div>
+            <div id="right" class="card"></div>
+          </div>
+        </div>
+      </div>
+
+      <audio id="sfx-whoosh" src="assets/sfx-whoosh.mp3" data-start="4.45" data-duration="0.57" data-track-index="10" data-volume="0.5"></audio>
+      <audio id="sfx-typing" src="assets/sfx-typing.mp3" data-start="7.6" data-duration="1.5" data-track-index="11" data-volume="0.4"></audio>
+      <audio id="sfx-send" src="assets/sfx-send.mp3" data-start="10.0" data-duration="0.37" data-track-index="12" data-volume="0.6"></audio>
+      <!--__SFX__-->
+      <audio id="bgm" src="assets/bgm.mp3" data-start="0" data-duration="29" data-track-index="5" data-volume="0.8"></audio>
+
+      <!-- D: call to action -->
+      <div id="sceneD" class="scene clip" data-start="24" data-duration="5" data-track-index="4">
+        <div id="dIn" class="fill">
+          <div id="cta1">Don't read your agent's progress. See it.</div>
+          <div id="cta2">Instead of streams of text, visual feedback. Works with Claude Code, Codex and Antigravity.</div>
+          <div id="code1" class="code"><span>/plugin install</span> goalpulse@raysca-tools</div>
+          <div id="code2" class="code"><span>$</span> npx -y github:raysca/goalpulse install-skill</div>
+          <div id="repo">github.com/raysca/goalpulse</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const D = /*__DATA__*/null;
+      const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+      // ---- scene A: the wall of text -----------------------------------------
+      $('wall').innerHTML = D.wall.concat(D.wall).map((l, i) => '<div data-layout-allow-overlap data-layout-allow-occlusion>- [' + (i % 3 ? ' ' : 'x') + '] ' + esc(l.slice(0, 120)) + '</div>').join('');
+
+      // ---- scene C: dashboard state is a pure function of the clock ----------
+      const C0 = 11, C_EVENTS_FROM = 12.0, STEP = 0.23;
+      const evTime = D.events.map((_, i) => C_EVENTS_FROM + i * STEP);
+      const askById = Object.fromEntries(D.asks.map((q) => [q.id, q]));
+      const LABEL = { todo: 'To do', active: 'In progress', review: 'In review', done: 'Done', blocked: 'Blocked', failed: 'Failed' };
+      $('gtitle').textContent = D.title;
+
+      function stateAt(t) {
+        const status = Object.fromEntries(D.tasks.map((x) => [x.id, 'todo']));
+        const open = [], answered = {};
+        const who = {};
+        D.events.forEach((e, i) => {
+          if (evTime[i] > t) return;
+          if (e.kind === 'ask') open.push(e.ref);
+          else if (e.kind === 'answer') { answered[e.ref] = true; }
+          else if (e.task) { status[e.task] = e.kind; if (e.by) who[e.task] = e.by; }
+        });
+        return { status, who, open: open.filter((id) => !answered[id]), answered: open.filter((id) => answered[id]) };
+      }
+
+      function draw(t) {
+        const s = stateAt(t);
+        const n = D.tasks.length;
+        const c = { todo: 0, active: 0, review: 0, done: 0, blocked: 0, failed: 0 };
+        D.tasks.forEach((x) => c[s.status[x.id]]++);
+        const pct = Math.round((100 * c.done) / n);
+        const bad = c.blocked + c.failed;
+        const health = c.done === n ? 'Complete' : bad || s.open.length ? 'At risk' : 'On track';
+        const col = health === 'Complete' ? 'var(--done)' : health === 'At risk' ? 'var(--active)' : 'var(--review)';
+        $('health').style.color = col;
+        $('healthTxt').textContent = health;
+        $('pct').textContent = pct + '%';
+        $('frac').textContent = c.done + '/' + n;
+        $('b-done').style.width = (100 * c.done) / n + '%';
+        $('b-active').style.left = (100 * c.done) / n + '%';
+        $('b-active').style.width = (100 * (c.active + c.review)) / n + '%';
+        $('b-blocked').style.left = (100 * (c.done + c.active + c.review)) / n + '%';
+        $('b-blocked').style.width = (100 * bad) / n + '%';
+        const parts = [[c.active + c.review, 'running', ''], [c.blocked, 'blocked', 'hot'], [c.failed, 'failed', 'hot'], [s.open.length, 'need you', 'hot']]
+          .filter((p) => p[0]).map((p) => '<span class="' + p[2] + '"><b>' + p[0] + '</b> ' + p[1] + '</span>');
+        $('counts').innerHTML = parts.join('') || '<span>&nbsp;</span>';
+
+        // questions
+        const qs = s.open.concat(s.answered).sort();
+        $('qbox').innerHTML = qs.length
+          ? '<h3>Questions<span>' + s.open.length + ' open</span></h3>' + qs.map((id) => {
+              const q = askById[id], done = s.answered.indexOf(id) >= 0;
+              return '<div class="q"><div class="qt" style="' + (done ? 'color:var(--muted)' : '') + '"><span class="qid">' + id + '</span>' + esc(q.text) + '</div>' +
+                (done ? '<span class="ans">Answered</span>' : '<span class="opts">' + q.options.map((o) => '<span class="opt">' + esc(o) + '</span>').join('') + '</span>') + '</div>';
+            }).join('')
+          : '<h3>Questions</h3><div class="none">Nothing waiting on you</div>';
+
+        // tasks by phase
+        $('right').innerHTML = D.phases.map((ph) => {
+          const ts = D.tasks.filter((x) => x.phase === ph);
+          const d = ts.filter((x) => s.status[x.id] === 'done').length;
+          return '<div class="ph">' + esc(ph) + '<span class="n">' + d + '/' + ts.length + '</span></div>' + ts.map((x) => {
+            const st = s.status[x.id];
+            const tag = st === 'blocked' ? '<span class="tag">asks Q2</span>' : '';
+            return '<div class="row s-' + st + '"><span class="ic"></span><span class="tid">' + x.id + '</span><span class="ttl">' + esc(x.title) + '</span>' +
+              tag + '<span class="who">' + (st !== 'todo' && s.who[x.id] ? esc(s.who[x.id]) : '') + '</span></div>';
+          }).join('');
+        }).join('');
+      }
+
+      // ---- scene P: the typed prompt ------------------------------------------
+      const P1 = 'Read docs/v2-plan.md and implement it phase by phase with sub-agents. ';
+      const P2 = 'Use goalpulse to report progress.';
+      const PT = P1 + P2;
+      function drawPrompt(p, t) {
+        const k = Math.floor(PT.length * p);
+        const a = PT.slice(0, Math.min(k, P1.length)), b = PT.slice(P1.length, Math.max(k, P1.length));
+        const caret = '<span class="caret" style="opacity:' + (p >= 1 ? (Math.floor(t * 2) % 2 ? 0 : 1) : 1) + '"></span>';
+        $('ptext').innerHTML = esc(a) + (b ? '<mark>' + esc(b) + '</mark>' : '') + caret;
+      }
+      drawPrompt(0, 0);
+
+      // ---- the one paused timeline -------------------------------------------
+      const tl = gsap.timeline({ paused: true });
+
+      // A
+      tl.fromTo('#wall', { y: 0 }, { y: -1700, duration: 4.8, ease: 'power1.in' }, 0);
+      tl.fromTo('#cap1', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 0.5);
+      tl.fromTo('#cap2', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 2.2);
+      tl.to('#wall', { opacity: 0, filter: 'blur(14px)', duration: 0.6, ease: 'power2.in' }, 4.2);
+      tl.to(['#cap1', '#cap2', '#fname', '#shade'], { opacity: 0, scale: 1.06, duration: 0.5, ease: 'power2.in' }, 4.3);
+
+      // B
+      tl.fromTo('#bIn', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 4.8);
+      tl.fromTo('#brand', { y: 40, scale: 0.94 }, { y: 0, scale: 1, duration: 0.8, ease: 'back.out(1.6)' }, 4.9);
+      tl.fromTo('#tag', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 5.6);
+      tl.to('#bIn', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 6.7);
+
+      // P
+      tl.fromTo('#pIn', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 7.0);
+      const pc = { p: 0 };
+      tl.fromTo(pc, { p: 0 }, { p: 1, duration: 1.9, ease: 'none', onUpdate: () => drawPrompt(pc.p, 7.6 + pc.p * 1.9) }, 7.6);
+      tl.fromTo('#pnote', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 9.6);
+      tl.fromTo('#psend', { backgroundColor: '#7b8089', scale: 1 }, { backgroundColor: '#8590f5', duration: 0.2 }, 9.7);
+      tl.fromTo('#psend', { scale: 1 }, { scale: 0.86, duration: 0.12, yoyo: true, repeat: 1, ease: 'power2.inOut' }, 10.0);
+      tl.to('#pIn', { opacity: 0, y: -24, duration: 0.5, ease: 'power2.in' }, 10.6);
+
+      // C
+      tl.fromTo('#cIn', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, C0);
+      const clock = { t: C0 };
+      tl.fromTo(clock, { t: C0 }, { t: C0 + 13.2, duration: 13.2, ease: 'none', onUpdate: () => draw(clock.t) }, C0);
+      tl.to('#cIn', { opacity: 0, duration: 0.5, ease: 'power2.in' }, 23.6);
+
+      // D
+      tl.fromTo('#dIn', { opacity: 0 }, { opacity: 1, duration: 0.5 }, 24);
+      tl.fromTo('#cta1', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 24.2);
+      tl.fromTo('#cta2', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 24.9);
+      tl.fromTo('#code1', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 25.7);
+      tl.fromTo('#code2', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 26.2);
+      tl.fromTo('#repo', { opacity: 0 }, { opacity: 1, duration: 0.6 }, 27);
+
+      draw(C0);
+      window.__timelines['main'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

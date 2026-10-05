@@ -1,5 +1,7 @@
 # goalpulse
 
+**Site: https://raysca.github.io/goalpulse/**
+
 Visual progress reporting for agent-driven goals. Your coordinating agent reports tasks, assumptions, questions and status; you watch a live dashboard instead of a stream of text or a bloated `progress.md`.
 
 ## Install
@@ -23,7 +25,7 @@ Requires Node.js 18+. No other dependencies, nothing to configure. Logs live in 
 
 ## What you get
 
-![Goal view](docs/goal.png)
+![Goal view](site/goal.png)
 
 - **Overview of every goal** in the project, goals needing you first.
 - **Per goal:** the coordinator's report, progress, what needs your attention (open questions, low-confidence assumptions, blocked work), a task board, assumptions and best guesses, and an activity feed.

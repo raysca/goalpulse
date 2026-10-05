@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GoalPulse: agent visual feedback</title>
+<meta name="description" content="Stop reading your agent's progress. See it. GoalPulse turns tasks, assumptions and questions from Claude Code, Codex or Antigravity into a live dashboard.">
+<meta property="og:title" content="GoalPulse: agent visual feedback">
+<meta property="og:description" content="Stop reading your agent's progress. See it.">
+<meta property="og:image" content="goal.png">
+<style>
+:root{--bg:#fff;--panel:#fafafb;--raise:#f4f5f6;--line:#e8e9ec;--line2:#dcdee2;--text:#1c1d20;--text2:#4a4d54;--muted:#80848c;--accent:#5b66d6;--on:#fff;--warn:#d9731f}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1012;--panel:#141518;--raise:#1a1b1f;--line:#232529;--line2:#2c2e34;--text:#eef0f2;--text2:#b8bcc3;--muted:#7b8089;--accent:#8590f5;--on:#0f1012;--warn:#f09050}}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.02em;text-decoration:none}
+.brand i{width:22px;height:22px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
+.brand i::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--on)}
+nav a.gh{color:var(--text2);text-decoration:none;font-size:14px}
+nav a.gh:hover{color:var(--text)}
+.hero{padding:56px 0 40px;text-align:center}
+.hero h1{font-size:clamp(34px,6vw,60px);line-height:1.08;letter-spacing:-.035em;font-weight:750;max-width:16ch;margin:0 auto}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p{max-width:56ch;margin:20px auto 0;color:var(--text2);font-size:18px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:28px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:10px;border:1px solid var(--line2);text-decoration:none;font-weight:600;font-size:15px;background:var(--bg)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on)}
+.btn:hover{filter:brightness(1.06)}
+.shot{margin:44px 0 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);box-shadow:0 10px 40px rgba(0,0,0,.12)}
+.shot img,.shot video{display:block;width:100%;height:auto}
+.caption{margin-top:10px;font-size:13px;color:var(--muted);text-align:center}
+section{padding:56px 0 0}
+h2{font-size:28px;letter-spacing:-.025em;line-height:1.2}
+.lede{color:var(--text2);margin-top:8px;max-width:60ch}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:24px}
+.card{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--panel)}
+.card h3{font-size:16px;margin-bottom:6px}
+.card p{color:var(--text2);font-size:14.5px}
+.steps{counter-reset:s;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:24px}
+.step{border-left:2px solid var(--line2);padding:2px 0 2px 16px}
+.step::before{counter-increment:s;content:counter(s);display:block;font-weight:700;color:var(--accent);margin-bottom:4px}
+.step b{display:block;margin-bottom:2px}
+.step span{color:var(--text2);font-size:14.5px}
+.prompt{margin-top:24px;border:1px solid var(--line2);border-radius:14px;padding:18px 20px;background:var(--panel);font-size:17px}
+.prompt mark{background:color-mix(in srgb,var(--accent) 24%,transparent);color:inherit;border-radius:6px;padding:0 6px}
+.install{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:24px}
+.code{position:relative;margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--raise);padding:12px 70px 12px 14px;font:13.5px/1.6 ui-monospace,"SF Mono",Menlo,Consolas,monospace;overflow-x:auto;white-space:pre}
+.code button{position:absolute;right:8px;top:8px;border:1px solid var(--line2);background:var(--bg);color:var(--text2);border-radius:7px;font:12px system-ui;padding:3px 9px;cursor:pointer}
+.code button:hover{color:var(--text)}
+.work{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{padding:5px 12px;border:1px solid var(--line2);border-radius:999px;font-size:13px;color:var(--text2)}
+footer{margin-top:72px;border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+footer a{color:var(--text2)}
+@media (max-width:760px){.grid,.steps,.install{grid-template-columns:1fr}.hero{padding-top:32px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="#"><i></i>GoalPulse</a>
+    <a class="gh" href="https://github.com/raysca/goalpulse">GitHub</a>
+  </nav>
+
+  <header class="hero">
+    <h1>Don't read your agent's progress. <em>See it.</em></h1>
+    <p>Agents in goal mode leave streams of text behind. GoalPulse turns their tasks, assumptions and questions into a live dashboard you can read at a glance.</p>
+    <div class="cta">
+      <a class="btn primary" href="#install">Install</a>
+      <a class="btn" href="#video">Watch the 30-second ad</a>
+    </div>
+    <div class="shot"><img src="goal.png" alt="GoalPulse dashboard: status, progress bar, open questions and blocked work for a billing project" width="1100" height="1250"></div>
+  </header>
+
+  <section>
+    <h2>One sentence to set up</h2>
+    <p class="lede">Tell your agent to use it. It creates the goal, logs work as it goes and hands you a dashboard link.</p>
+    <div class="prompt">Read <code>docs/v2-plan.md</code> and implement it phase by phase with sub-agents. <mark>Use goalpulse to report progress.</mark></div>
+    <div class="steps">
+      <div class="step"><b>Ask</b><span>Add the sentence to any goal prompt.</span></div>
+      <div class="step"><b>Work</b><span>The coordinating agent reports tasks, assumptions and questions as one-line events.</span></div>
+      <div class="step"><b>Watch</b><span>Open the link. It updates live; resume later in a fresh session.</span></div>
+    </div>
+  </section>
+
+  <section id="video">
+    <h2>See it in 30 seconds</h2>
+    <div class="shot"><video controls playsinline preload="metadata" poster="goal.png" src="goalpulse-ad.mp4"></video></div>
+    <p class="caption">A real run of the demo goal. <a href="goalpulse-ad-vertical.mp4">Vertical 9:16 cut</a></p>
+  </section>
+
+  <section>
+    <h2>Built for glancing</h2>
+    <div class="grid">
+      <div class="card"><h3>Status in one line</h3><p>Health, percent done and a segmented bar. Counts for running, blocked, failed and waiting on you, only when they are not zero.</p></div>
+      <div class="card"><h3>Questions up front</h3><p>Open questions and their options come first. Answered ones fold away. Blocked work and risky assumptions sit right below.</p></div>
+      <div class="card"><h3>Phases and dependencies</h3><p>Tasks grouped by phase, in-flight work first, finished work folded. Rows show what each task waits on and what it unblocks.</p></div>
+      <div class="card"><h3>Honest reports</h3><p>The coordinator's note flags when tasks have changed since it was written, and live blockers override a stale "on track".</p></div>
+      <div class="card"><h3>Resume anywhere</h3><p>A fresh agent gets a briefing: plan, last report, stale in-flight work and your new answers.</p></div>
+      <div class="card"><h3>Light, dark, shareable</h3><p>Follows your system theme. <code>goalpulse render</code> writes a single HTML snapshot to share.</p></div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p class="lede">Node.js 18+. No other dependencies, nothing to configure.</p>
+    <div class="install">
+      <div class="card">
+        <h3>Claude Code</h3>
+        <div class="code">/plugin marketplace add raysca/goalpulse
+/plugin install goalpulse@raysca-tools<button type="button">Copy</button></div>
+      </div>
+      <div class="card">
+        <h3>Codex, Antigravity and others</h3>
+        <div class="code">npm install -g github:raysca/goalpulse
+goalpulse install-skill<button type="button">Copy</button></div>
+      </div>
+    </div>
+    <div class="work"><span class="chip">Claude Code</span><span class="chip">Codex</span><span class="chip">Antigravity</span><span class="chip">Anything that reads AGENTS.md or Agent Skills</span></div>
+  </section>
+
+  <footer>
+    <span>GoalPulse &middot; MIT licensed &middot; &copy; 2026 Raymond Ottun</span>
+    <span><a href="https://github.com/raysca/goalpulse">Source</a> &middot; <a href="https://github.com/raysca/goalpulse/releases">Releases</a></span>
+  </footer>
+</div>
+<script>
+document.querySelectorAll('.code button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var text = b.parentNode.firstChild.textContent;
+    try { navigator.clipboard.writeText(text).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }); } catch (e) {}
+  });
+});
+</script>
+</body>
+</html>
