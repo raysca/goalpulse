@@ -1,7 +1,7 @@
 {
   "name": "raysca-tools",
   "owner": {
-    "name": "goalpulse contributors"
+    "name": "Raymond Ottun"
   },
   "metadata": {
     "description": "Visual progress reporting for agent-driven goals"
