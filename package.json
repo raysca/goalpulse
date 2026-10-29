@@ -37,5 +37,8 @@
   "bugs": {
     "url": "https://github.com/raysca/goalpulse/issues"
   },
-  "homepage": "https://github.com/raysca/goalpulse#readme"
+  "homepage": "https://github.com/raysca/goalpulse#readme",
+  "dependencies": {
+    "qrcode-terminal": "^0.12.0"
+  }
 }

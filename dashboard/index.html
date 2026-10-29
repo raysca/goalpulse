@@ -87,6 +87,9 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
 
 /* update */
 .update{padding:14px 16px}
+.glance{cursor:default}.glance:hover{background:var(--panel)}
+.glance-part{margin-top:12px}.glance-part h3{margin:0 0 4px;font-size:12px;color:var(--muted);font-weight:600}
+.glance-part p{margin:0;line-height:1.55;white-space:pre-wrap;max-width:80ch}
 .up-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted)}
 .up-hd b{color:var(--c);font-weight:600}
 .summary{font-size:14px;line-height:1.6;white-space:pre-wrap;max-width:75ch}
@@ -108,6 +111,7 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
 .counts .grow{margin-left:auto}
 .clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .update{cursor:pointer;padding:12px 16px}.update:hover{background:var(--hover)}
+.update.glance{cursor:default}.update.glance:hover{background:var(--bg)}
 .summary{font-size:13px;line-height:1.55}
 .dis{display:flex;align-items:center;gap:8px;width:100%;min-height:28px;border-radius:6px}
 .dis:hover h2{color:var(--accent)}
@@ -177,7 +181,9 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
 .trow:hover{background:var(--hover)}
 .tr{display:grid;grid-template-columns:16px 52px minmax(0,1fr) auto 128px 56px;gap:10px;align-items:center;min-height:38px;padding:6px 14px}
 .tid{color:var(--muted);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px}
-.ttl{min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ttl{display:flex;align-items:center;gap:8px;min-width:0;color:var(--text)}
+.task-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.task-state{flex:none;color:var(--text2);font-size:11px}
 .s-done .ttl,.s-dropped .ttl{color:var(--text2)}
 .s-dropped .ttl{text-decoration:line-through}
 .tr .chips{display:flex;gap:5px;justify-content:flex-end}
@@ -251,17 +257,50 @@ h2 .n{color:var(--muted);font-weight:500;margin-left:6px}
   .page{padding:20px 16px 64px}
   .bar-top{padding:0 16px}
   .cols2{grid-template-columns:1fr}
-  .tr{grid-template-columns:16px 44px minmax(0,1fr) 48px}
+  .tr{grid-template-columns:16px 44px minmax(0,1fr) 48px;min-height:44px}
   .tr .chips,.tr .own{display:none}
   .sub-line,.detail{padding-left:70px}
   .gh{display:none}
-  .gcard{grid-template-columns:18px minmax(0,1fr) 86px}
+  .gcard{grid-template-columns:18px minmax(0,1fr) minmax(70px,92px) auto}
   .gcard>:nth-child(3),.gcard>:nth-child(6){display:none}
   .arow{grid-template-columns:minmax(0,1fr)}
   .arow .k{min-width:0}
   .as-top{grid-template-columns:30px minmax(0,1fr)}
   .as .chips{grid-column:2;justify-content:flex-start}
   .as .why{margin-left:40px}
+}
+@media (max-width:560px){
+  .page{padding:16px 12px 48px}
+  .bar-top{height:48px;padding:0 12px}
+  .back{min-height:36px}
+  h1{font-size:20px}
+  .sum{flex-wrap:wrap;gap:8px}
+  .sum .stack{order:3;flex:1 0 100%;height:7px}
+  .counts{gap:6px 12px}
+  .counts .grow{margin-left:0}
+  .up-hd{flex-wrap:wrap;align-items:flex-start}
+  .up-hd>.muted{margin-left:auto}
+  .update{padding:12px}
+  .qrow{grid-template-columns:30px minmax(0,1fr);align-items:start;gap:6px 8px;padding:10px 12px;min-height:44px}
+  .qrow>.muted{grid-column:2;white-space:normal}
+  .qt .chips{gap:5px}
+  .tabs button{min-height:36px;padding:4px 10px}
+  .dis{min-height:44px}
+  .more{min-height:44px;padding:10px 12px}
+  .arow{min-height:44px;padding:10px 12px}
+  .as{min-height:44px;padding:10px 12px}
+  .as-top{gap:6px 8px}
+  .as .why{margin-left:38px}
+  .gcard{grid-template-columns:18px minmax(0,1fr) 64px auto;gap:6px;padding-left:10px;padding-right:10px}
+  .gc-p{gap:5px}
+  .gc-p .stack{min-width:22px}
+  .tr{grid-template-columns:14px 36px minmax(0,1fr);gap:6px;padding:7px 10px}
+  .tr .when{display:none}
+  .tr .ttl{flex-wrap:wrap;gap:2px 8px;line-height:1.35}
+  .task-state{font-size:11px}
+  .sub-line,.detail{padding-left:66px;padding-right:10px}
+  .board{grid-template-columns:repeat(5,minmax(176px,1fr));gap:8px}
+  .foot{margin-top:28px}
 }
 </style>
 </head>
@@ -399,8 +438,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
 
   function header(s) {
     var g = s.goal;
-    return '<h1>' + esc(g ? g.title : 'No goal set yet') + (s.archived ? ' <span class="chip">archived</span>' : '') + '</h1>' +
-      (g && g.desc ? '<p class="sub">' + esc(g.desc) + '</p>' : '');
+    return '<h1>' + esc(g ? g.title : 'No goal set yet') + (s.archived ? ' <span class="chip">archived</span>' : '') + '</h1>';
   }
 
   // The glance: one line of status, one bar, one line of counts.
@@ -419,19 +457,21 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
       '<div class="counts">' + parts.join('') + '<span class="muted grow">' + esc(when) + '</span></div>';
   }
 
-  // Coordinator note: two lines until clicked.
+  // Durable handoff: feature intent, latest state, next action and risks in one scan.
   function reportSection(s) {
     var r = s.report;
-    if (!r) return '';
-    var open = ui.expanded.report;
-    var behind = s.tasks.filter(function (t) { return new Date(t.updatedAt) > new Date(r.ts); }).length;
-    return '<section class="sec"><div class="box update" role="button" tabindex="0" aria-expanded="' + !!open + '" data-act="toggle" data-v="report">' +
-      '<div class="up-hd">Coordinator · ' + esc(agoLong(r.ts)) +
-      (behind ? '<span class="chip warn" title="Tasks changed after this update was written">' + behind + ' changed since</span>' : '') + '</div>' +
-      '<p class="summary' + (open ? '' : ' clamp') + '">' + esc(r.summary) + '</p>' +
-      (open && ((r.next && r.next.length) || (r.risks && r.risks.length)) ? '<div class="cols2">' +
-        '<div>' + (r.next && r.next.length ? '<h3>Next up</h3><ul>' + r.next.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
-        '<div>' + (r.risks && r.risks.length ? '<h3>Risks</h3><ul class="risks">' + r.risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div></div>' : '') +
+    var desc = s.goal && s.goal.desc;
+    if (!r && !desc) return '';
+    var behind = r ? s.tasks.filter(function (t) { return new Date(t.updatedAt) > new Date(r.ts); }).length : 0;
+    var next = r && r.next || [], risks = r && r.risks || [];
+    return '<section class="sec"><div class="box update glance">' +
+      '<div class="up-hd">At a glance' + (r ? '<span class="muted">Updated ' + esc(agoLong(r.ts)) + (r.by ? ' · ' + esc(r.by) : '') + '</span>' : '<span class="chip">No progress update yet</span>') +
+      (behind ? '<span class="chip warn" title="Tasks changed after this update was written">' + behind + ' tasks changed since</span>' : '') + '</div>' +
+      (desc ? '<div class="glance-part"><h3>Goal and outcome</h3><p>' + esc(desc) + '</p></div>' : '') +
+      (r ? '<div class="glance-part"><h3>Current state</h3><p>' + esc(r.summary) + '</p></div>' : '') +
+      ((next.length || risks.length) ? '<div class="cols2">' +
+        '<div>' + (next.length ? '<h3>Next action' + (next.length > 1 ? 's' : '') + '</h3><ul>' + next.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>' +
+        '<div>' + (risks.length ? '<h3>Risks</h3><ul class="risks">' + risks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div></div>' : '') +
       '</div></section>';
   }
 
@@ -528,7 +568,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
     var who = t.status === 'review' ? (t.reviewer || t.owner) : t.owner;
     var note = taskNote(t);
     return '<div class="trow s-' + t.status + (flashIds[t.id] ? ' flash' : '') + '" id="task-' + esc(t.id) + '" role="button" tabindex="0" aria-expanded="' + !!open + '" data-act="toggle" data-v="task:' + esc(t.id) + '">' +
-      '<div class="tr">' + icon(t.status) + '<span class="tid">' + esc(t.id) + '</span><span class="ttl">' + esc(t.title) + '</span>' +
+      '<div class="tr">' + icon(t.status) + '<span class="tid">' + esc(t.id) + '</span><span class="ttl"><span class="task-name">' + esc(t.title) + '</span><span class="task-state">' + esc(ST[t.status] ? ST[t.status].label : t.status) + '</span></span>' +
       '<span class="chips">' + taskChips(t, s) + '</span>' + owner(who) + '<span class="when">' + esc(ago(t.updatedAt)) + '</span></div>' +
       (note && !open ? '<div class="sub-line">' + esc(note) + '</div>' : '') + (open ? taskDetail(t, s) : '') + '</div>';
   }
@@ -740,7 +780,7 @@ window.__GP_DATA__ = /*__GP_DATA__*/null;
 
     var empty = !state.goal && !state.tasks.length;
     var inner = header(state) + (empty ? '' : summary(state)) + (empty ? '<section class="sec">' + onboarding() + '</section>' :
-      questionsSection(state) + attention(state) + reportSection(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
+      reportSection(state) + questionsSection(state) + attention(state) + tasksSection(state, flashIds) + assumptionsSection(state) + activitySection(state) +
       '<div class="foot">' + state.rev + ' events' + (conn === 'snapshot' ? '. Static snapshot: run <span class="mono">goalpulse dashboard</span> for live updates.' : '') + '</div>');
     app.innerHTML = shell(goals, state, state.goal ? state.goal.title : state.slug, inner, multi);
     document.title = (state.attention.length ? '(' + state.attention.length + ') ' : '') + (state.progress.total ? state.progress.pct + '% · ' : '') + (state.goal ? state.goal.title : 'Goal progress');

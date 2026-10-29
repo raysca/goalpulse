@@ -19,9 +19,11 @@ Tell your agent:
 
 > Use goalpulse to report progress on this.
 
-That is all. The agent creates a goal, logs tasks and assumptions as it works, and replies with a dashboard link (`http://127.0.0.1:4317`) that updates live. To pick work back up in a new session: *"Resume the goalpulse goal."*
+That is all. The agent creates a goal, logs tasks and assumptions as it works, and replies with URLs for the dashboard on this computer and on the local network. The startup output also prints a QR code for each LAN URL, so you can scan it with your phone. The live dashboard is reachable from a phone or tablet on the same network by default. To pick work back up in a new session: *"Resume the goalpulse goal."*
 
-Requires Node.js 18+. No other dependencies, nothing to configure. Logs live in `.goalpulse/` in your project and are git-ignored by default (delete `.goalpulse/.gitignore` to commit them).
+The dashboard is read-only and has no authentication. By default, it listens on all network interfaces so your other devices can follow progress. Use it on a trusted network. If a local-only dashboard from an older version is running, the next `goalpulse dashboard` command restarts it with LAN access enabled.
+
+Requires Node.js 18+. The CLI uses a small local QR encoder to print scannable LAN links; no other setup is needed. Logs live in `.goalpulse/` in your project and are git-ignored by default (delete `.goalpulse/.gitignore` to commit them).
 
 ## What you get
 
@@ -29,6 +31,7 @@ Requires Node.js 18+. No other dependencies, nothing to configure. Logs live in 
 
 - **Overview of every goal** in the project, goals needing you first.
 - **Per goal:** the coordinator's report, progress, what needs your attention (open questions, low-confidence assumptions, blocked work), a task board, assumptions and best guesses, and an activity feed.
+- **Mobile view:** responsive task lists, wrapped summaries, and touch-sized controls make live progress easier to follow on phones and tablets.
 - **Resume:** a fresh agent gets a briefing (plan, last report, what is done, stale in-flight work, your new answers) and carries on.
 - **Snapshots:** `goalpulse render` writes a single shareable HTML file.
 
@@ -51,7 +54,7 @@ Then tell the agent: *"Use goalpulse to report progress on this."* If `goalpulse
 For agents without skills support (Cursor, Copilot, Aider, ...), paste `skills/goalpulse/SKILL.md` into `AGENTS.md` or the goal prompt. The contract is just the CLI.
 
 ```bash
-goalpulse dashboard --open                    # background dashboard
+goalpulse dashboard --open                    # background dashboard (LAN accessible by default)
 npm run demo                                  # simulated run, three goals
 ```
 
@@ -114,7 +117,7 @@ Light and dark themes follow the system setting. Changed cards flash briefly whe
 ## Sharing
 
 - `goalpulse render -o report.html` writes a **self-contained snapshot** of every goal (state embedded, no server); add `--goal slug` for one goal. Attach it to a PR, drop it in Slack, or commit it.
-- `goalpulse serve --host 0.0.0.0` exposes the live view on your network. It is read-only and has no authentication, so use it only on trusted networks.
+- `goalpulse dashboard` starts a background server reachable from the local network and prints device URLs with a scannable terminal QR code for each. `goalpulse serve` does the same in the foreground. Both are read-only and unauthenticated, so use them only on trusted networks. Pass `--host 127.0.0.1` to `serve` if you need to bind to this computer only.
 - Logs are plain text and diff-friendly. Commit `.goalpulse/` for history, or git-ignore it (the default `.gitignore` does).
 
 ## CLI reference
@@ -138,8 +141,8 @@ goalpulse note "text" [--kind decision|finding|risk|note] [--task T3]
 
 goalpulse report "summary" [--health on-track|at-risk|blocked] [--next "..."]... [--risk "..."]...
 goalpulse status [--json]       one goal's summary (the goal list if several are open)
-goalpulse dashboard [--open] [--stop]     # background dashboard; prints its URL
-goalpulse serve [--port 4317] [--host 127.0.0.1] [--open]
+goalpulse dashboard [--open] [--stop]           # LAN-accessible by default; prints device URLs
+goalpulse serve [--port 4317] [--host 0.0.0.0] [--open]  # foreground; --host 127.0.0.1 is local-only
 goalpulse render [--goal slug] [-o file.html] [--open]
 ```
 

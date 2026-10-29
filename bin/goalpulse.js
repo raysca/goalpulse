@@ -9,7 +9,21 @@ const { loadGoal, loadAll, resolveGoal, uniqueSlug } = require('../lib/goals');
 const { statusText, goalsTable, briefing } = require('../lib/text');
 const { renderHtml } = require('../lib/render');
 const { spawn } = require('child_process');
-const { serve, ping, openBrowser } = require('../lib/server');
+const { serve, ping, openBrowser, lanUrls } = require('../lib/server');
+const qrcode = require('qrcode-terminal');
+
+function printNetworkUrls(urls) {
+  if (!urls.length) {
+    console.log('No LAN IPv4 address was detected on this machine.');
+    return;
+  }
+  console.log('On your local network:');
+  urls.forEach((address, i) => {
+    console.log(`  ${address}`);
+    console.log(`  Scan QR ${i + 1} to open this address:`);
+    qrcode.generate(address, { small: true });
+  });
+}
 
 const HELP = `goalpulse — structured progress reporting for agent-driven goals
 
@@ -49,8 +63,8 @@ Judgement calls
 Reporting
   goalpulse report "summary" [--health on-track|at-risk|blocked] [--next "..."]... [--risk "..."]...
   goalpulse status [--json]                    one goal's summary (all goals if ambiguous)
-  goalpulse dashboard [--open] [--stop]        start (or reuse) a background dashboard, print its URL
-  goalpulse serve  [--port 4317] [--host 127.0.0.1] [--open]    live dashboard for every goal
+  goalpulse dashboard [--open] [--stop]         start (or reuse) a LAN-accessible dashboard
+  goalpulse serve  [--port 4317] [--host 0.0.0.0] [--open] live dashboard (LAN by default)
   goalpulse render [--goal slug] [-o file.html] [--open]        self-contained snapshot (all goals by default)
 
 Environment: GOALPULSE_DIR (the .goalpulse folder), GOALPULSE_GOAL (default --goal), GOALPULSE_AGENT (default --by)
@@ -77,7 +91,7 @@ async function main() {
   const argv = process.argv.slice(2);
   const cmd = argv.shift();
   const { pos, flags } = parse(argv, {
-    boolean: ['json', 'open', 'help', 'no-log', 'stop'],
+    boolean: ['json', 'open', 'help', 'no-log', 'stop', 'lan'],
     alias: { o: 'out', p: 'port', h: 'help' },
   });
 
@@ -380,16 +394,16 @@ async function main() {
 
     case 'serve': {
       needRoot();
-      const host = one(flags.host) || '127.0.0.1';
+      const host = one(flags.host) || '0.0.0.0';
       const idle = Number(one(flags['idle-exit'])) || 0;
-      const { url, port } = await serve({
+      const { url, port, lanUrls: networkUrls } = await serve({
         root,
         port: Number(one(flags.port)) || 4317,
         host,
         idleExitMs: idle * 60000,
       });
       const sf = path.join(root, 'server.json');
-      fs.writeFileSync(sf, JSON.stringify({ pid: process.pid, port, url, startedAt: new Date().toISOString() }));
+      fs.writeFileSync(sf, JSON.stringify({ pid: process.pid, port, host, url, lanUrls: networkUrls, startedAt: new Date().toISOString() }));
       const cleanup = () => {
         try {
           fs.unlinkSync(sf);
@@ -399,8 +413,11 @@ async function main() {
       process.on('SIGINT', () => process.exit(0));
       process.on('SIGTERM', () => process.exit(0));
       console.log(`goalpulse dashboard: ${url}   (Ctrl+C to stop)`);
+      if (host === '0.0.0.0') {
+        printNetworkUrls(networkUrls);
+      }
       if (host !== '127.0.0.1' && host !== 'localhost')
-        console.log('warning: listening beyond localhost — the dashboard has no authentication');
+        console.log('warning: listening beyond localhost — anyone on a reachable network can view this dashboard; it has no authentication');
       if (flags.open) openBrowser(url);
       break;
     }
@@ -426,9 +443,28 @@ async function main() {
         break;
       }
       if (alive) {
-        console.log(`Dashboard: ${info.url}`);
-        if (flags.open) openBrowser(info.url);
-        break;
+        const boundHost = info.host || new URL(info.url).hostname;
+        if (boundHost === '127.0.0.1' || boundHost === 'localhost' || boundHost === '::1') {
+          console.log('Restarting the existing local-only dashboard so it is reachable on your network...');
+          try { process.kill(info.pid); } catch (_) {}
+          let oldServerAlive = true;
+          for (let i = 0; i < 40 && oldServerAlive; i++) {
+            try { process.kill(info.pid, 0); } catch (_) { oldServerAlive = false; }
+            if (oldServerAlive) await new Promise((r) => setTimeout(r, 100));
+          }
+          if (oldServerAlive) die('could not stop the existing local-only dashboard; stop it manually, then retry');
+          for (let i = 0; i < 10 && (await ping(info.url, root)); i++)
+            await new Promise((r) => setTimeout(r, 100));
+          try { fs.unlinkSync(sf); } catch (_) {}
+        } else {
+          console.log(`Dashboard: ${info.url}`);
+          const currentUrls = boundHost === '0.0.0.0' ? lanUrls(info.port) : [];
+          const networkUrls = boundHost === '0.0.0.0' ? (currentUrls.length ? currentUrls : info.lanUrls || []) : [info.url];
+          printNetworkUrls(networkUrls);
+          console.log('warning: anyone on a reachable network can view this dashboard; it has no authentication');
+          if (flags.open) openBrowser(info.url);
+          break;
+        }
       }
       try {
         fs.unlinkSync(sf);
@@ -441,17 +477,21 @@ async function main() {
         env: { ...process.env, GOALPULSE_DIR: root },
       });
       child.unref();
-      let url = null;
-      for (let i = 0; i < 40 && !url; i++) {
+      let info = null;
+      for (let i = 0; i < 40 && !info; i++) {
         await new Promise((r) => setTimeout(r, 100));
         try {
           const j = JSON.parse(fs.readFileSync(sf, 'utf8'));
-          if (await ping(j.url, root)) url = j.url;
+          if (await ping(j.url, root)) info = j;
         } catch (_) {}
       }
-      if (!url) die('could not start the dashboard; try: goalpulse serve');
-      console.log(`Dashboard: ${url}`);
-      if (flags.open) openBrowser(url);
+      if (!info) die('could not start the dashboard; try: goalpulse serve');
+      console.log(`Dashboard: ${info.url}`);
+      const currentUrls = lanUrls(info.port);
+      const networkUrls = currentUrls.length ? currentUrls : info.lanUrls || [];
+      printNetworkUrls(networkUrls);
+      console.log('warning: anyone on a reachable network can view this dashboard; it has no authentication');
+      if (flags.open) openBrowser(info.url);
       break;
     }
 
