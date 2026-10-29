@@ -7,3 +7,4 @@
 - Improve mobile board layout so status columns reflow instead of clipping.
 - Generate QR codes with the `qrcode` package for both the terminal and dashboard.
 - Restart older dashboard servers when needed to enable LAN access and QR sharing.
+- Keep the demo generator available while excluding its pre-rendered sample-data snapshot from the published package.
