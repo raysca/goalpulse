@@ -19,7 +19,7 @@ Tell your agent:
 
 > Use goalpulse to report progress on this.
 
-That is all. The agent creates a goal, logs tasks and assumptions as it works, and replies with URLs for the dashboard on this computer and on the local network. The startup output also prints a QR code for each LAN URL, so you can scan it with your phone. The live dashboard is reachable from a phone or tablet on the same network by default. To pick work back up in a new session: *"Resume the goalpulse goal."*
+That is all. The agent creates a goal, logs tasks and assumptions as it works, and replies with URLs for the dashboard on this computer and on the local network. The startup output prints QR codes for LAN links, and the dashboard has a **Share to phone** popup with scannable codes. The live dashboard is reachable from a phone or tablet on the same network by default. To pick work back up in a new session: *"Resume the goalpulse goal."*
 
 The dashboard is read-only and has no authentication. By default, it listens on all network interfaces so your other devices can follow progress. Use it on a trusted network. If a local-only dashboard from an older version is running, the next `goalpulse dashboard` command restarts it with LAN access enabled.
 
@@ -31,7 +31,7 @@ Requires Node.js 18+. The CLI uses a small local QR encoder to print scannable L
 
 - **Overview of every goal** in the project, goals needing you first.
 - **Per goal:** the coordinator's report, progress, what needs your attention (open questions, low-confidence assumptions, blocked work), a task board, assumptions and best guesses, and an activity feed.
-- **Mobile view:** responsive task lists, wrapped summaries, and touch-sized controls make live progress easier to follow on phones and tablets.
+- **Mobile view:** responsive task lists, wrapped summaries, reflowing board columns, and touch-sized controls make live progress easier to follow on phones and tablets.
 - **Resume:** a fresh agent gets a briefing (plan, last report, what is done, stale in-flight work, your new answers) and carries on.
 - **Snapshots:** `goalpulse render` writes a single shareable HTML file.
 
@@ -108,7 +108,7 @@ Because state is rebuilt by replaying the log, resuming needs no saved session; 
 | **Coordinator report**: latest summary, next up, risks, health | `goalpulse report` |
 | **Progress**: segmented bar, per-phase progress | task statuses |
 | **Needs your attention**: open questions, blocked/failed tasks, low-confidence or high-impact assumptions | `ask`, `block`, `fail`, `assume` |
-| **Task board / list**: to do (ready vs waiting on deps), in progress, in review, blocked, done, with owner, result and "quiet" warnings | `add`, `plan`, `start`, `review`, `done`... |
+| **Task list / board / dependency graph**: status, owner, result and "quiet" warnings; graph arrows point from prerequisites to dependent tasks, with missing dependencies and possible cycles called out | `add`, `plan`, task `deps` |
 | **Assumptions & best guesses**: why, alternative considered, confidence, impact if wrong; filter by needs-review/open/resolved | `assume`, `resolve` |
 | **Activity**: chronological feed including decisions, findings, risks and handovers | all events |
 
@@ -117,7 +117,7 @@ Light and dark themes follow the system setting. Changed cards flash briefly whe
 ## Sharing
 
 - `goalpulse render -o report.html` writes a **self-contained snapshot** of every goal (state embedded, no server); add `--goal slug` for one goal. Attach it to a PR, drop it in Slack, or commit it.
-- `goalpulse dashboard` starts a background server reachable from the local network and prints device URLs with a scannable terminal QR code for each. `goalpulse serve` does the same in the foreground. Both are read-only and unauthenticated, so use them only on trusted networks. Pass `--host 127.0.0.1` to `serve` if you need to bind to this computer only.
+- `goalpulse dashboard` starts a background server reachable from the local network and prints device URLs with a scannable terminal QR code for each. The live dashboard also offers a **Share to phone** popup with QR codes and direct links. `goalpulse serve` does the same in the foreground. Both are read-only and unauthenticated, so use them only on trusted networks. Pass `--host 127.0.0.1` to `serve` if you need to bind to this computer only.
 - Logs are plain text and diff-friendly. Commit `.goalpulse/` for history, or git-ignore it (the default `.gitignore` does).
 
 ## CLI reference

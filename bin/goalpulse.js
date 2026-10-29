@@ -10,19 +10,19 @@ const { statusText, goalsTable, briefing } = require('../lib/text');
 const { renderHtml } = require('../lib/render');
 const { spawn } = require('child_process');
 const { serve, ping, openBrowser, lanUrls } = require('../lib/server');
-const qrcode = require('qrcode-terminal');
+const qrcode = require('qrcode');
 
-function printNetworkUrls(urls) {
+async function printNetworkUrls(urls) {
   if (!urls.length) {
     console.log('No LAN IPv4 address was detected on this machine.');
     return;
   }
   console.log('On your local network:');
-  urls.forEach((address, i) => {
+  for (const [i, address] of urls.entries()) {
     console.log(`  ${address}`);
     console.log(`  Scan QR ${i + 1} to open this address:`);
-    qrcode.generate(address, { small: true });
-  });
+    console.log(await qrcode.toString(address, { type: 'terminal', small: true }));
+  }
 }
 
 const HELP = `goalpulse — structured progress reporting for agent-driven goals
@@ -403,7 +403,7 @@ async function main() {
         idleExitMs: idle * 60000,
       });
       const sf = path.join(root, 'server.json');
-      fs.writeFileSync(sf, JSON.stringify({ pid: process.pid, port, host, url, lanUrls: networkUrls, startedAt: new Date().toISOString() }));
+      fs.writeFileSync(sf, JSON.stringify({ pid: process.pid, port, host, url, lanUrls: networkUrls, features: ['lan-qr'], startedAt: new Date().toISOString() }));
       const cleanup = () => {
         try {
           fs.unlinkSync(sf);
@@ -414,7 +414,7 @@ async function main() {
       process.on('SIGTERM', () => process.exit(0));
       console.log(`goalpulse dashboard: ${url}   (Ctrl+C to stop)`);
       if (host === '0.0.0.0') {
-        printNetworkUrls(networkUrls);
+        await printNetworkUrls(networkUrls);
       }
       if (host !== '127.0.0.1' && host !== 'localhost')
         console.log('warning: listening beyond localhost — anyone on a reachable network can view this dashboard; it has no authentication');
@@ -444,8 +444,12 @@ async function main() {
       }
       if (alive) {
         const boundHost = info.host || new URL(info.url).hostname;
-        if (boundHost === '127.0.0.1' || boundHost === 'localhost' || boundHost === '::1') {
-          console.log('Restarting the existing local-only dashboard so it is reachable on your network...');
+        const localOnly = boundHost === '127.0.0.1' || boundHost === 'localhost' || boundHost === '::1';
+        const needsQrUpgrade = !(info.features || []).includes('lan-qr');
+        if (localOnly || needsQrUpgrade) {
+          console.log(localOnly
+            ? 'Restarting the existing local-only dashboard so it is reachable on your network...'
+            : 'Restarting the existing dashboard to enable LAN QR sharing...');
           try { process.kill(info.pid); } catch (_) {}
           let oldServerAlive = true;
           for (let i = 0; i < 40 && oldServerAlive; i++) {
@@ -460,7 +464,7 @@ async function main() {
           console.log(`Dashboard: ${info.url}`);
           const currentUrls = boundHost === '0.0.0.0' ? lanUrls(info.port) : [];
           const networkUrls = boundHost === '0.0.0.0' ? (currentUrls.length ? currentUrls : info.lanUrls || []) : [info.url];
-          printNetworkUrls(networkUrls);
+          await printNetworkUrls(networkUrls);
           console.log('warning: anyone on a reachable network can view this dashboard; it has no authentication');
           if (flags.open) openBrowser(info.url);
           break;
@@ -477,7 +481,7 @@ async function main() {
         env: { ...process.env, GOALPULSE_DIR: root },
       });
       child.unref();
-      let info = null;
+      info = null;
       for (let i = 0; i < 40 && !info; i++) {
         await new Promise((r) => setTimeout(r, 100));
         try {
@@ -489,7 +493,7 @@ async function main() {
       console.log(`Dashboard: ${info.url}`);
       const currentUrls = lanUrls(info.port);
       const networkUrls = currentUrls.length ? currentUrls : info.lanUrls || [];
-      printNetworkUrls(networkUrls);
+      await printNetworkUrls(networkUrls);
       console.log('warning: anyone on a reachable network can view this dashboard; it has no authentication');
       if (flags.open) openBrowser(info.url);
       break;

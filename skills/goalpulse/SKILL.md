@@ -18,7 +18,7 @@ goalpulse dashboard
 # prints the local URL and detected LAN URLs (for example, http://192.168.1.24:4317)
 ```
 
-It is idempotent (reuses a running one), runs in the background and stops itself after 2 idle hours. It binds to all network interfaces by default and prints the host URL, LAN URLs, and a terminal QR code for each LAN URL. The dashboard has no authentication; make this clear and tell the user to use it on a trusted network. Use `goalpulse dashboard --open` only if the user wants it opened for them.
+It is idempotent (reuses a running one), runs in the background and stops itself after 2 idle hours. It binds to all network interfaces by default and prints the host URL, LAN URLs, and terminal QR codes. The live dashboard also has a **Share to phone** popup with scannable codes. The dashboard has no authentication; make this clear and tell the user to use it on a trusted network. Use `goalpulse dashboard --open` only if the user wants it opened for them.
 
 ## Which goal? Use the goal's own command
 
