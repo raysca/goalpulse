@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GoalPulse: agent visual feedback</title>
-<meta name="description" content="Stop reading your agent's progress. See it. GoalPulse turns tasks, assumptions and questions from Claude Code, Codex or Antigravity into a live dashboard.">
+<meta name="description" content="See your AI agent's progress in a live dashboard with task dependencies, parallel work, clear handoffs, mobile boards and LAN QR sharing.">
 <meta property="og:title" content="GoalPulse: agent visual feedback">
-<meta property="og:description" content="Stop reading your agent's progress. See it.">
+<meta property="og:description" content="Live task progress, dependency graphs, clear agent handoffs, and phone-friendly LAN sharing.">
 <meta property="og:image" content="goal.png">
 <style>
 :root{--bg:#fff;--panel:#fafafb;--raise:#f4f5f6;--line:#e8e9ec;--line2:#dcdee2;--text:#1c1d20;--text2:#4a4d54;--muted:#80848c;--accent:#5b66d6;--on:#fff;--warn:#d9731f}
@@ -32,6 +32,7 @@ nav a.gh:hover{color:var(--text)}
 .shot{margin:44px 0 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);box-shadow:0 10px 40px rgba(0,0,0,.12)}
 .shot img,.shot video{display:block;width:100%;height:auto}
 .caption{margin-top:10px;font-size:13px;color:var(--muted);text-align:center}
+.mobile-shot{max-width:430px;margin-left:auto;margin-right:auto}
 section{padding:56px 0 0}
 h2{font-size:28px;letter-spacing:-.025em;line-height:1.2}
 .lede{color:var(--text2);margin-top:8px;max-width:60ch}
@@ -71,7 +72,7 @@ footer a{color:var(--text2)}
       <a class="btn primary" href="#install">Install</a>
       <a class="btn" href="#video">Watch the 30-second ad</a>
     </div>
-    <div class="shot"><img src="goal.png" alt="GoalPulse dashboard: status, progress bar, open questions and blocked work for a billing project" width="1100" height="1250"></div>
+    <div class="shot"><img src="goal.png" alt="GoalPulse dashboard showing project health, current state, next actions, open questions, risks, and the task list" width="1440" height="1080"></div>
   </header>
 
   <section>
@@ -96,11 +97,27 @@ footer a{color:var(--text2)}
     <div class="grid">
       <div class="card"><h3>Status in one line</h3><p>Health, percent done and a segmented bar. Counts for running, blocked, failed and waiting on you, only when they are not zero.</p></div>
       <div class="card"><h3>Questions up front</h3><p>Open questions and their options come first. Answered ones fold away. Blocked work and risky assumptions sit right below.</p></div>
-      <div class="card"><h3>Phases and dependencies</h3><p>Tasks grouped by phase, in-flight work first, finished work folded. Rows show what each task waits on and what it unblocks.</p></div>
+      <div class="card"><h3>Task dependency graph</h3><p>Follow arrows from prerequisites to dependent tasks. Independent branches make parallel work visible; missing links and possible cycles are flagged.</p></div>
       <div class="card"><h3>Honest reports</h3><p>The coordinator's note flags when tasks have changed since it was written, and live blockers override a stale "on track".</p></div>
-      <div class="card"><h3>Resume anywhere</h3><p>A fresh agent gets a briefing: plan, last report, stale in-flight work and your new answers.</p></div>
+      <div class="card"><h3>Resume with context</h3><p>A new agent gets the goal summary and plan, last report, completed and stale in-flight tasks, risks and your new answers.</p></div>
+      <div class="card"><h3>Parallel work with boundaries</h3><p>The skill helps identify independent tasks, assign clear owners and note file boundaries so agents can work concurrently and hand off cleanly.</p></div>
+      <div class="card"><h3>Follow from your phone</h3><p>Open Share to phone for scannable LAN QR codes and direct links. The dashboard adapts to narrow screens, including a stacked task board.</p></div>
+      <div class="card"><h3>Keyboard-friendly task views</h3><p>Switch views and select graph tasks with the keyboard. Each graph task announces its status and prerequisites to assistive technology.</p></div>
       <div class="card"><h3>Light, dark, shareable</h3><p>Follows your system theme. <code>goalpulse render</code> writes a single HTML snapshot to share.</p></div>
     </div>
+  </section>
+
+  <section id="dependencies">
+    <h2>See how the work connects</h2>
+    <p class="lede">The graph makes prerequisites and parallel branches visible at a glance. Select a task in the live dashboard to inspect its description and dependencies.</p>
+    <div class="shot"><img src="task-graph.png" alt="Task graph: discovery tasks branch into implementation, then converge on verification and rollout" width="2200" height="950"></div>
+    <p class="caption">Arrows point from prerequisites to the tasks they unblock. Scroll across larger plans.</p>
+  </section>
+
+  <section>
+    <h2>Keep up from a phone</h2>
+    <p class="lede">The live dashboard provides a Share to phone popup with QR codes and LAN links. On a narrow screen, board columns stack vertically so task cards remain readable.</p>
+    <div class="shot mobile-shot"><img src="mobile-board.png" alt="Mobile GoalPulse board with To do, In progress, In review, Blocked, and Done columns stacked vertically" width="430" height="1050"></div>
   </section>
 
   <section id="install">

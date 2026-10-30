@@ -23,17 +23,24 @@ That is all. The agent creates a goal, logs tasks and assumptions as it works, a
 
 The dashboard is read-only and has no authentication. By default, it listens on all network interfaces so your other devices can follow progress. Use it on a trusted network. If a local-only dashboard from an older version is running, the next `goalpulse dashboard` command restarts it with LAN access enabled.
 
-Requires Node.js 18+. The CLI uses a small local QR encoder to print scannable LAN links; no other setup is needed. Logs live in `.goalpulse/` in your project and are git-ignored by default (delete `.goalpulse/.gitignore` to commit them).
+Requires Node.js 18+. GoalPulse generates QR codes locally for LAN sharing; no external QR service is used. Logs live in `.goalpulse/` in your project and are git-ignored by default (delete `.goalpulse/.gitignore` to commit them).
 
 ## What you get
 
-![Goal view](site/goal.png)
+![GoalPulse overview with the current state, next actions, open questions, blocked work, and task list](site/goal.png)
 
 - **Overview of every goal** in the project, goals needing you first.
-- **Per goal:** the coordinator's report, progress, what needs your attention (open questions, low-confidence assumptions, blocked work), a task board, assumptions and best guesses, and an activity feed.
+- **Per goal:** the coordinator's report, progress, what needs your attention (open questions, low-confidence assumptions, blocked work), task list and board, assumptions and best guesses, and an activity feed.
+- **Task dependency graph:** follow prerequisite arrows, see what work can proceed in parallel, and select a task to inspect its details. Missing dependencies and possible cycles are called out.
 - **Mobile view:** responsive task lists, wrapped summaries, reflowing board columns, and touch-sized controls make live progress easier to follow on phones and tablets.
-- **Resume:** a fresh agent gets a briefing (plan, last report, what is done, stale in-flight work, your new answers) and carries on.
+- **Share to phone:** open the live dashboard on the same Wi-Fi with a QR code or direct LAN link from the dashboard popup.
+- **Resume:** a fresh agent gets the goal and plan, current report, completed and in-flight work, stale tasks, risks, assumptions and your new answers, then continues from the workspace state.
+- **Parallel work:** the skill identifies independent tasks and encourages explicit agent ownership and file boundaries so work can be split and integrated safely.
 - **Snapshots:** `goalpulse render` writes a single shareable HTML file.
+
+![Task dependency graph showing prerequisite arrows and parallel branches](site/task-graph.png)
+
+![Mobile task board with status columns stacked for a narrow screen](site/mobile-board.png)
 
 Sub-agents report to the coordinator as usual; only the coordinator writes to the log, which keeps one voice.
 
@@ -112,7 +119,7 @@ Because state is rebuilt by replaying the log, resuming needs no saved session; 
 | **Assumptions & best guesses**: why, alternative considered, confidence, impact if wrong; filter by needs-review/open/resolved | `assume`, `resolve` |
 | **Activity**: chronological feed including decisions, findings, risks and handovers | all events |
 
-Light and dark themes follow the system setting. Changed cards flash briefly when live.
+Light and dark themes follow the system setting. Changed cards flash briefly when live. The task view selection is remembered between visits.
 
 ## Sharing
 
